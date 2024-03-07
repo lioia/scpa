@@ -3,7 +3,7 @@
 ## Building
 
 ```bash
-module load gnu mpi cuda # only on department server
+module load gnu mpich cuda # only on department server
 cmake -B build
 cmake --build build
 ```
