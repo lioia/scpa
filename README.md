@@ -3,7 +3,7 @@
 ## Building
 
 ```bash
-module load gnu mpich cuda # only on department server
+module load gnu mpich cuda # or module load load in local development
 cmake -B build
 cmake --build build
 ```
@@ -13,7 +13,7 @@ cmake --build build
 **MPI**
 
 ```bash
-mpirun -n <n_processes> ./build/mpi/scpa-mpi
+mpirun -n <p> ./build/mpi/scpa-mpi <m> <n> <k> <initial_seed> <type>
 ```
 
 **CUDA**
