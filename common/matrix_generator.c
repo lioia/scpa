@@ -45,6 +45,8 @@ int main(int argc, char **argv) {
   int m = strtol(argv[1], NULL, 10);
   int n = strtol(argv[2], NULL, 10);
   int k = strtol(argv[3], NULL, 10);
+  // NOTE: with this implementation the first numbers of the matrices are always the same;
+  // so probably something can be done based on the m, n, k parameters
   srand(SEED); // Currently set as a define; can be probably an argument
   // Initializing all the matrices
   float *a = matrix_init(m, k);
