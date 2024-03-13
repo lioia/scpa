@@ -10,3 +10,5 @@ set(CMAKE_CXX_FLAGS "-O3")
 
 add_subdirectory(mpi)
 add_subdirectory(cuda)
+
+add_executable(scpa-matrix-generator common/matrix_generator.c common/utils.c)
