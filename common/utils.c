@@ -1,75 +1,28 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/time.h>
 
 #include "utils.h"
 
-// Helper internal function to write to generic FILE*
-int matrix_write_to_file(FILE *fp, float *matrix, int rows, int cols);
-
-float *matrix_init(int rows, int cols) {
-  float *matrix = malloc(sizeof(*matrix) * rows * cols);
-  if (matrix == NULL) {
-    perror("Error allocating matrix");
+char *create_folder_path(int m, int n, int k) {
+  // Calculating folder path size (+1 is for NULL-terminator)
+  int folder_path_size = snprintf(NULL, 0, "matrix/%dx%dx%d/", m, n, k) + 1;
+  // Allocating memory for folder string
+  char *folder = malloc(sizeof(*folder) * folder_path_size);
+  if (folder == NULL) {
+    perror("Error allocating memory for folder path");
     return NULL;
   }
-  for (size_t i = 0; i < rows * cols; i++)
-    matrix[i] = (float)rand() / RAND_MAX;
-  return matrix;
+  // Writing folder path
+  snprintf(folder, folder_path_size * sizeof(*folder), "matrix/%dx%dx%d", m, n, k);
+  folder[folder_path_size - 1] = '\0'; // NULL-terminated string
+  return folder;
 }
 
-int matrix_write_bin_to_file(char *folder, char *name, float *matrix, int rows, int cols) {
+char *create_file_path(char *folder, char *name) {
   int filename_size = strlen(folder) + strlen(name) + 2;
   char *filename = malloc(sizeof(*filename) * filename_size);
   sprintf(filename, "%s/%s", folder, name);
   filename[filename_size - 1] = '\0';
-  FILE *fp = fopen(filename, "wb");
-  if (fp == NULL) {
-    perror("Error writing to file (binary)");
-    return -1;
-  }
-  fwrite(matrix, sizeof(*matrix), rows * cols, fp);
-  fclose(fp);
-  free(filename);
-  return 0;
-}
-
-int matrix_write_txt_to_file(char *folder, char *name, float *matrix, int rows, int cols) {
-  int filename_size = strlen(folder) + strlen(name) + 2;
-  char *filename = malloc(sizeof(*filename) * filename_size);
-  sprintf(filename, "%s/%s", folder, name);
-  filename[filename_size - 1] = '\0';
-  FILE *fp = fopen(filename, "w+");
-  if (fp == NULL) {
-    perror("Error writing to file (text)");
-    return -1;
-  }
-  matrix_write_to_file(fp, matrix, rows, cols);
-  fclose(fp);
-  free(filename);
-  return 0;
-}
-
-void matrix_print(float *matrix, int rows, int cols) { matrix_write_to_file(stdout, matrix, rows, cols); }
-
-int matrix_write_to_file(FILE *fp, float *matrix, int rows, int cols) {
-  for (size_t i = 0; i < rows; i++) {
-    for (size_t j = 0; j < cols; j++) {
-      fprintf(fp, "%f", matrix[i * cols + j]);
-      if (j != cols - 1)
-        fprintf(fp, ", ");
-    }
-    if (i != rows - 1)
-      fprintf(fp, "\n");
-  }
-  fprintf(fp, "\n");
-  return 0;
-}
-// NOTE: change order to see what is the fastest
-void matrix_serial_mult(float *a, float *b, float *c, int m, int n, int k) {
-  for (size_t i = 0; i < m; i++)
-    for (size_t j = 0; j < n; j++)
-      for (size_t l = 0; l < k; l++)
-        c[i * n + j] += a[i * k + l] * b[l * n + j];
+  return filename;
 }
