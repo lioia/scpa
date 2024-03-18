@@ -179,6 +179,7 @@ int main(int argc, char **argv) {
     MPI_Gatherv(local_c, n * n_rows, MPI_FLOAT, c, col_recv_counts, col_offsets, MPI_FLOAT, 0, col_comm);
     // Rank 0 checks the result and prints the time
     if (col_rank == 0) {
+      double end_time = MPI_Wtime();
       // Calculating the error
       float error = 0;
       for (size_t i = 0; i < n; i++) {
@@ -187,7 +188,6 @@ int main(int argc, char **argv) {
           error += diff > 0 ? diff : -diff;
         }
       }
-      double end_time = MPI_Wtime();
       printf("m,n,k,time,error\n");
       printf("%d,%d,%d,%f,%f\n", m, n, k, end_time - start_time, error);
     }
