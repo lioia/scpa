@@ -1,5 +1,4 @@
 #include <mpi.h>
-#include <mpi_proto.h> // TODO: remove (added by LSP)
 #include <mpio.h>
 #include <stdio.h>
 #include <stdlib.h>
