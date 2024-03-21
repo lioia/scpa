@@ -10,6 +10,6 @@ char *create_file_path(char *folder, char *file);
 // Calculation error
 float calculate_error(float *c, float *c_file, int m, int n);
 // Write stats to file
-int write_stats(char *path, int m, int n, int k, int p, float time, float error);
+int write_stats(char *name, int m, int n, int k, int p, float time, float error);
 
 #endif // !UTILS_H

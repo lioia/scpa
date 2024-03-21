@@ -94,7 +94,7 @@ int main(int argc, char **argv) {
 #endif
 
   // Writing stats to file
-  if (write_stats("output/omp.csv", m, n, k, p, end_time - start_time, error))
+  if (write_stats("omp.csv", m, n, k, p, end_time - start_time, error))
     exit(EXIT_FAILURE);
 #ifdef DEBUG
   // Print final matrix (in debug mode only)

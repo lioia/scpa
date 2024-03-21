@@ -93,7 +93,7 @@ int main(int argc, char **argv) {
   a_fp = fopen(a_path, "r");
   b_fp = fopen(b_path, "r");
   c_fp = fopen(c_path, "r");
-  if (a_fp == NULL || b_fp == NULL || c_fp) {
+  if (a_fp == NULL || b_fp == NULL || c_fp == NULL) {
     perror("Error opening matrix files");
     MPI_Abort(comm, -1);
   }
@@ -196,14 +196,14 @@ int main(int argc, char **argv) {
       double end_time = MPI_Wtime();
 
 #ifdef _OPENMP
-      char *output_path = "output/mpi-omp.csv";
+      char *output_name = "mpi-omp.csv";
       int x_value = p * t;
 #else
-      char *output_path = "output/mpi.csv";
+      char *output_name = "mpi.csv";
       int x_value = p;
 #endif
 
-      if (write_stats(output_path, m, n, k, x_value, end_time - start_time, error))
+      if (write_stats(output_name, m, n, k, x_value, end_time - start_time, error))
         MPI_Abort(comm, -1);
 
 #ifdef DEBUG

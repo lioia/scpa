@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "utils.h"
@@ -62,7 +63,12 @@ float calculate_error(float *c, float *c_file, int m, int n) {
   return error;
 }
 
-int write_stats(char *path, int m, int n, int k, int p, float time, float error) {
+int write_stats(char *name, int m, int n, int k, int p, float time, float error) {
+  // Creating folder; not checking errors as it can already exists
+  mkdir("output", 0777);
+  char *path = create_file_path("output", name);
+  if (path == NULL)
+    return -1;
   FILE *fp;
   if (access(path, W_OK)) {
     // File does not exists (or it cannot be written to); creating new file with write permissions
@@ -83,5 +89,6 @@ int write_stats(char *path, int m, int n, int k, int p, float time, float error)
   }
   // Write stats
   fprintf(fp, "%d,%d,%d,%d,%f,%f\n", m, n, k, p, time, error);
+  free(path);
   return 0;
 }
