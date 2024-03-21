@@ -1,3 +1,5 @@
+#include <errno.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -35,4 +37,16 @@ char *create_file_path(char *folder, char *name) {
   sprintf(filename, "%s/%s", folder, name);
   filename[filename_size - 1] = '\0';
   return filename;
+}
+
+float calculate_error(float *c, float *c_file, int m, int n) {
+  float error = 0.0;
+  for (size_t i = 0; i < n; i++) {
+    for (size_t j = 0; j < m; j++) {
+      // NOTE: maybe use a better metric
+      float diff = c[i * n + j] - c_file[i * n + j];
+      error += diff > 0 ? diff : -diff;
+    }
+  }
+  return error;
 }

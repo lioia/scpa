@@ -7,5 +7,7 @@ int parse_int_arg(char *arg);
 char *create_folder_path(int m, int n, int k);
 // Create file path for the matrix in file
 char *create_file_path(char *folder, char *file);
+// Calculation error
+float calculate_error(float *c, float *c_file, int m, int n);
 
 #endif // !UTILS_H

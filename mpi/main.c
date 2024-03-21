@@ -13,16 +13,23 @@
 // NOTE: this implementation is the variant with 2D on C
 // To decide whether to implement the other variants (this would also need another argument)
 
+// TODO: general refactor; divide into multiple functions
+
 int main(int argc, char **argv) {
   // Variable Declaration
-  int m = 0, n = 0, k = 0;                         // Matrix dimension
+  int m = 0, n = 0, k = 0;                         // Matrix dimension (from arguments)
+  int i, j, l;                                     // Loop control variables
+  int start_cols, start_rows, end_cols, end_rows;  // Offsets based on topology
   float *local_a, *local_b, *local_c, *c, *c_file; // Matrices
   int rank, p;                                     // Process rank and number of processes
   MPI_Comm comm;                                   // Custom communicator
   int dims[2], periods[2];                         // Topology dimensions
   int coords[2];                                   // Coordinates in topology
-  char *folder, *a_path, *b_path;                  // Path for the specific matrix
+  char *folder, *a_path, *b_path, *c_path;         // Path for the specific matrix
+  FILE *a_fp, *b_fp, *c_fp;                        // Files of the matrices
 
+// Based on the version being used, a different usage is required
+// In the OpenMP version the number of threads must be specified as an argument
 #ifdef _OPENMP
   if (argc != 5) {
     puts("Usage: mpirun -n <p> ./build/mpi/scpa-mpi <m> <n> <k> <t>");
@@ -39,12 +46,11 @@ int main(int argc, char **argv) {
 #ifdef _OPENMP
   int t = parse_int_arg(argv[4]);
   omp_set_num_threads(t);
-  printf("%d\n", t);
 #endif
   MPI_Init(&argc, &argv);
   double start_time = MPI_Wtime();
   // Getting basics information; using MPI_COMM_WORLD as the new comm will be created by the topology
-  // A new temp comm could also be used for this part
+  // NOTE: A new temp comm could also be used for this part
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &p);
 
@@ -57,7 +63,6 @@ int main(int argc, char **argv) {
 
   // Calculating offsets and number of items assigned to each process
   // Taking into account odd values and fair distribution
-  int start_cols, start_rows, end_cols, end_rows;
   calculate_start_end(m, dims[0], coords[0], 0, &start_rows, &end_rows);
   calculate_start_end(n, dims[1], coords[1], coords[0] * dims[0], &start_cols, &end_cols);
   int n_cols = end_cols - start_cols;
@@ -78,13 +83,15 @@ int main(int argc, char **argv) {
     MPI_Abort(comm, -1);
   a_path = create_file_path(folder, "a.bin");
   b_path = create_file_path(folder, "b.bin");
-  if (a_path == NULL || b_path == NULL)
+  c_path = create_file_path(folder, "c.bin");
+  if (a_path == NULL || b_path == NULL || c_path == NULL)
     MPI_Abort(comm, -1);
 
-  // NOTE: convert to MPI File I/O
-  FILE *a_fp = fopen(a_path, "r");
-  FILE *b_fp = fopen(b_path, "r");
-  if (a_fp == NULL || b_fp == NULL) {
+  // TODO: convert to MPI File I/O
+  a_fp = fopen(a_path, "r");
+  b_fp = fopen(b_path, "r");
+  c_fp = fopen(c_path, "r");
+  if (a_fp == NULL || b_fp == NULL || c_fp) {
     perror("Error opening matrix files");
     MPI_Abort(comm, -1);
   }
@@ -115,8 +122,7 @@ int main(int argc, char **argv) {
     }
   }
 
-  // Perform local multiplication in a serial way
-  int i, j, l;
+  // Perform local multiplication in a serial way (or using OpenMP if enabled)
 #pragma omp parallel for private(i, j, l) shared(local_a, local_b, local_c) collapse(2)
   for (i = 0; i < n_rows; i++)
     for (j = 0; j < n_cols; j++)
@@ -176,17 +182,6 @@ int main(int argc, char **argv) {
       // Only rank 0 allocates the necessary memory for the resulting c and the c loaded from file
       c = malloc(sizeof(*c) * m * n);
       c_file = malloc(sizeof(*c_file) * m * n);
-      char *c_path = create_file_path(folder, "c.bin"); // Path to C file
-      if (c == NULL || c_file == NULL || c_path == NULL) {
-        perror("Error allocating matrix c or opening c matrix file");
-        MPI_Abort(comm, -1);
-      }
-      // Opening C file
-      FILE *c_fp = fopen(c_path, "r");
-      if (c_fp == NULL) {
-        perror("Error opning file");
-        MPI_Abort(comm, -1);
-      }
       // Reading matrix C from file
       fread(c_file, sizeof(*c_file), m * n, c_fp);
     }
@@ -195,13 +190,7 @@ int main(int argc, char **argv) {
     // Rank 0 checks the result and prints the time
     if (col_rank == 0) {
       // Calculating the error
-      float error = 0;
-      for (size_t i = 0; i < n; i++) {
-        for (size_t j = 0; j < m; j++) {
-          float diff = c[i * n + j] - c_file[i * n + j];
-          error += diff > 0 ? diff : -diff;
-        }
-      }
+      float error = calculate_error(c, c_file, m, n);
       double end_time = MPI_Wtime();
 #ifdef _OPENMP
       int x_value = p * t;

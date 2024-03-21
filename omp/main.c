@@ -81,14 +81,7 @@ int main(int argc, char **argv) {
         c[i * n + j] += a[i * k + l] * b[l * n + j];
 
   // Calculating the error
-  float error = 0.0;
-  for (size_t i = 0; i < n; i++) {
-    for (size_t j = 0; j < m; j++) {
-      // NOTE: maybe use a better metric
-      float diff = c[i * n + j] - c_file[i * n + j];
-      error += diff > 0 ? diff : -diff;
-    }
-  }
+  float error = calculate_error(c, c_file, m, n);
 
   // As before, calculate the time using OpenMP or a system-call
 #ifdef _OPENMP
