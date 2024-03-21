@@ -3,6 +3,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
 #include "../common/utils.h"
 #include "utils.h"
 
@@ -19,14 +23,24 @@ int main(int argc, char **argv) {
   int coords[2];                                   // Coordinates in topology
   char *folder, *a_path, *b_path;                  // Path for the specific matrix
 
+#ifdef _OPENMP
+  if (argc != 5) {
+    puts("Usage: mpirun -n <p> ./build/mpi/scpa-mpi <m> <n> <k> <t>");
+#else
   if (argc != 4) {
     puts("Usage: mpirun -n <p> ./build/mpi/scpa-mpi <m> <n> <k>");
+#endif
     exit(EXIT_FAILURE);
   }
   // Variable Initialization
   m = parse_int_arg(argv[1]);
   n = parse_int_arg(argv[2]);
   k = parse_int_arg(argv[3]);
+#ifdef _OPENMP
+  int t = parse_int_arg(argv[4]);
+  omp_set_num_threads(t);
+  printf("%d\n", t);
+#endif
   MPI_Init(&argc, &argv);
   double start_time = MPI_Wtime();
   // Getting basics information; using MPI_COMM_WORLD as the new comm will be created by the topology
@@ -102,9 +116,11 @@ int main(int argc, char **argv) {
   }
 
   // Perform local multiplication in a serial way
-  for (size_t i = 0; i < n_rows; i++)
-    for (size_t j = 0; j < n_cols; j++)
-      for (size_t l = 0; l < k; l++)
+  int i, j, l;
+#pragma omp parallel for private(i, j, l) shared(local_a, local_b, local_c) collapse(2)
+  for (i = 0; i < n_rows; i++)
+    for (j = 0; j < n_cols; j++)
+      for (l = 0; l < k; l++)
         local_c[i * n + j + start_cols] += local_a[i * k + l] * local_b[l * n_cols + j];
 
   // Collect data:
