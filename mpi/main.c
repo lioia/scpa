@@ -203,8 +203,13 @@ int main(int argc, char **argv) {
         }
       }
       double end_time = MPI_Wtime();
+#ifdef _OPENMP
+      int x_value = p * t;
+#else
+      int x_value = p;
+#endif
       printf("m,n,k,p,time,error\n");
-      printf("%d,%d,%d,%d,%f,%f\n", m, n, k, p, end_time - start_time, error);
+      printf("%d,%d,%d,%d,%f,%f\n", m, n, k, x_value, end_time - start_time, error);
     }
   }
   MPI_Finalize();

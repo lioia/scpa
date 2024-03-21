@@ -4,6 +4,16 @@
 
 #include "utils.h"
 
+// Return parsed int from arg; exits otherwise
+int parse_int_arg(char *arg) {
+  int val = strtol(arg, NULL, 10);
+  if ((val == INT_MAX || val == INT_MIN) && errno == ERANGE) {
+    fprintf(stderr, "Error parsing m (%s): out of range", arg);
+    exit(EXIT_FAILURE);
+  }
+  return val;
+}
+
 char *create_folder_path(int m, int n, int k) {
   // Calculating folder path size (+1 is for NULL-terminator)
   int folder_path_size = snprintf(NULL, 0, "matrix/%dx%dx%d/", m, n, k) + 1;
