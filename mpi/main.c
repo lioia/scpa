@@ -1,4 +1,5 @@
 #include <mpi.h>
+#include <mpi_proto.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -7,13 +8,14 @@
 #include <omp.h>
 #endif
 
+#include "../common/matrix.h"
 #include "../common/utils.h"
 #include "utils.h"
 
-// NOTE: this implementation is the variant with 2D on C
-// To decide whether to implement the other variants (this would also need another argument)
+// NOTE: this implementation is the variant with 2D on C; it is not the cyclic variant (just the block variant)
+// Decide whether to implement the other variants (this would also need another argument)
 
-// TODO: general refactor; divide into multiple functions
+// TODO: general refactor; divide into multiple functions based on various steps
 
 int main(int argc, char **argv) {
   // Variable Declaration
@@ -192,13 +194,22 @@ int main(int argc, char **argv) {
       // Calculating the error
       float error = calculate_error(c, c_file, m, n);
       double end_time = MPI_Wtime();
+
 #ifdef _OPENMP
+      char *output_path = "output/mpi-omp.csv";
       int x_value = p * t;
 #else
+      char *output_path = "output/mpi.csv";
       int x_value = p;
 #endif
-      printf("m,n,k,p,time,error\n");
-      printf("%d,%d,%d,%d,%f,%f\n", m, n, k, x_value, end_time - start_time, error);
+
+      if (write_stats(output_path, m, n, k, x_value, end_time - start_time, error))
+        MPI_Abort(comm, -1);
+
+#ifdef DEBUG
+      // Print final matrix
+      matrix_print(c, m, n);
+#endif
     }
   }
   MPI_Finalize();

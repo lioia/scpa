@@ -38,8 +38,8 @@ int mkdir_p(char *folder) {
 
 int main(int argc, char **argv) {
   // Checking arguments
-  if (argc != 4) {
-    printf("Usage: %s <m> <n> <k>\n", argv[0]);
+  if (argc < 4) {
+    printf("Usage: %s <m> <n> <k>[ <type>]\n", argv[0]);
     exit(EXIT_FAILURE);
   }
   // Parsing arguments
@@ -50,15 +50,20 @@ int main(int argc, char **argv) {
   // so probably something can be done based on the m, n, k parameters
   srand(SEED); // Currently set as a define; can be probably an argument
   // Initializing all the matrices
-  float *a = matrix_init(m, k);
-  float *b = matrix_init(k, n);
+  int type = 0; // Random by default
+  if (argc == 5 && !strncmp(argv[4], "index", 5))
+    type = 1; // Index if specified
+  float *a = matrix_init(m, k, type);
+  float *b = matrix_init(k, n, type);
   float *c = malloc(sizeof(*c) * m * n); // Not using matrix_init as it has to be an empty matrix
   if (a == NULL || b == NULL || c == NULL)
     exit(EXIT_FAILURE);
   memset(c, 0, sizeof(*c) * m * n);
 
+  // Calculate c matrix in a serial computation
   matrix_serial_mult(a, b, c, m, n, k);
 
+  // Create folder path
   char *folder = create_folder_path(m, n, k);
   if (folder == NULL)
     exit(EXIT_FAILURE);
@@ -74,15 +79,15 @@ int main(int argc, char **argv) {
   if (matrix_write_bin_to_file(folder, "c.bin", c, m, n))
     exit(EXIT_FAILURE);
 
-  // NOTE: this part can probably be removed as it is redundant (needed for testing functionality)
-
-  // Writing A and B matrix to txt file
+#ifdef DEBUG
+  // Writing A and B matrix to txt file (only in debug mode)
   if (matrix_write_txt_to_file(folder, "a.txt", a, m, k))
     exit(EXIT_FAILURE);
   if (matrix_write_txt_to_file(folder, "b.txt", b, k, n))
     exit(EXIT_FAILURE);
   if (matrix_write_txt_to_file(folder, "c.txt", c, m, n))
     exit(EXIT_FAILURE);
+#endif
 
   // Freeing memory used
   free(folder);

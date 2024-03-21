@@ -59,7 +59,8 @@ int main(int argc, char **argv) {
     perror("Error opening files");
     return -1;
   }
-  // Allocating
+
+  // Allocating matrices
   a = malloc(sizeof(*a) * m * k);
   b = malloc(sizeof(*b) * n * k);
   c = malloc(sizeof(*c) * m * m);           // Calculated C matrix
@@ -77,13 +78,14 @@ int main(int argc, char **argv) {
 #pragma omp parallel for private(i, j, l) shared(a, b, c) collapse(2)
   for (i = 0; i < m; i++)
     for (j = 0; j < n; j++)
+#pragma omp simd
       for (l = 0; l < k; l++)
         c[i * n + j] += a[i * k + l] * b[l * n + j];
 
   // Calculating the error
   float error = calculate_error(c, c_file, m, n);
 
-  // As before, calculate the time using OpenMP or a system-call
+  // Just like before, calculate the time using OpenMP or a system-call
 #ifdef _OPENMP
   end_time = omp_get_wtime();
 #else
@@ -91,10 +93,12 @@ int main(int argc, char **argv) {
   end_time = tv.tv_sec + tv.tv_usec / 1000000.0;
 #endif
 
-  // Printing time NOTE: this can probably write to a file
-  printf("m,n,k,p,time,error\n");
-  printf("%d,%d,%d,%d,%f,%f\n", m, n, k, p, end_time - start_time, error);
-  // Print final matrix
+  // Writing stats to file
+  if (write_stats("output/omp.csv", m, n, k, p, end_time - start_time, error))
+    exit(EXIT_FAILURE);
+#ifdef DEBUG
+  // Print final matrix (in debug mode only)
   matrix_print(c, m, n);
+#endif
   return 0;
 }

@@ -6,6 +6,7 @@ void calculate_start_end(int size, int dims, int coord, int offset, int *start, 
   int rest = size % dims; // Used to fairly distribute work
   *start = (offset + coord) * block_size % size;
   *end = 0;
+  // Fairly distribute work based on the rank (coord in the topology)
   if (coord < rest) {
     *start += coord;
     *end += 1;

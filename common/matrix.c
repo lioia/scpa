@@ -9,44 +9,55 @@
 // Helper internal function to write to generic FILE*
 int matrix_write_to_file(FILE *fp, float *matrix, int rows, int cols);
 
-float *matrix_init(int rows, int cols) {
+float *matrix_init(int rows, int cols, int type) {
+  // Allocate memory needed
   float *matrix = malloc(sizeof(*matrix) * rows * cols);
   if (matrix == NULL) {
     perror("Error allocating matrix");
     return NULL;
   }
+  // Set elements value (index or random, based on type)
   for (size_t i = 0; i < rows * cols; i++)
-    matrix[i] = i;
-  // matrix[i] = (float)rand() / RAND_MAX;
+    matrix[i] = type ? i : (float)rand() / RAND_MAX;
   return matrix;
 }
 
 int matrix_write_bin_to_file(char *folder, char *name, float *matrix, int rows, int cols) {
+  // Create output file path
   char *filename = create_file_path(folder, name);
   if (filename == NULL)
     return -1;
+  // Open output file
   FILE *fp = fopen(filename, "wb");
   if (fp == NULL) {
     perror("Error writing to file (binary)");
     return -1;
   }
+  // Write as a blob of bytes
   fwrite(matrix, sizeof(*matrix), rows * cols, fp);
+  // Close file
   fclose(fp);
+  // Free memory used by the function
   free(filename);
   return 0;
 }
 
 int matrix_write_txt_to_file(char *folder, char *name, float *matrix, int rows, int cols) {
+  // Create output file path
   char *filename = create_file_path(folder, name);
   if (filename == NULL)
     return -1;
+  // Open output file
   FILE *fp = fopen(filename, "w+");
   if (fp == NULL) {
     perror("Error writing to file (text)");
     return -1;
   }
+  // Write to file
   matrix_write_to_file(fp, matrix, rows, cols);
+  // Close file
   fclose(fp);
+  // Free memory used by the function
   free(filename);
   return 0;
 }
