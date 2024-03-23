@@ -1,5 +1,4 @@
 #include <mpi.h>
-#include <mpi_proto.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -8,7 +7,6 @@
 #include <omp.h>
 #endif
 
-#include "../common/matrix.h"
 #include "../common/utils.h"
 #include "utils.h"
 
@@ -34,7 +32,7 @@ int main(int argc, char **argv) {
 // In the OpenMP version the number of threads must be specified as an argument
 #ifdef _OPENMP
   if (argc != 5) {
-    puts("Usage: mpirun -n <p> ./build/mpi/scpa-mpi <m> <n> <k> <t>");
+    puts("Usage: mpirun -n <p> ./build/mpi/scpa-mpi-omp <m> <n> <k> <t>");
 #else
   if (argc != 4) {
     puts("Usage: mpirun -n <p> ./build/mpi/scpa-mpi <m> <n> <k>");
@@ -55,6 +53,11 @@ int main(int argc, char **argv) {
   // NOTE: A new temp comm could also be used for this part
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &p);
+
+#ifdef _OPENMP
+  if (rank == 0)
+    printf("Running with OpenMP\n");
+#endif
 
   // Topology
   dims[0] = dims[1] = 0;                                       // Default assignment

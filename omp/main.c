@@ -7,7 +7,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "../common/matrix.h"
 #include "../common/utils.h"
 
 int main(int argc, char **argv) {
@@ -39,6 +38,7 @@ int main(int argc, char **argv) {
   struct timeval tv;
   gettimeofday(&tv, NULL);
   start_time = tv.tv_sec + tv.tv_usec / 1000000.0; // Convert to the same format used by omp_get_wtime
+  printf("[WARN] Not running OpenMP\n");
 #endif
 
   // Calculate folder path of the matrices
