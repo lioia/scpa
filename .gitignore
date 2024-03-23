@@ -3,3 +3,4 @@ build/
 matrix/
 vgcore*
 output/
+valgrind-out.txt
