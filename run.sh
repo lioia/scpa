@@ -8,10 +8,12 @@ fi
 k_vals=(32 64 128 156)
 size_vals=(32 64 128 256 512 1024 2048 4096 8192)
 p_vals=(2 4 8 16 24)
+replicas=1
 
 # Syntax: mpi_run <m> <n> <k>
 mpi_run() {
     for p in "${p_vals[@]}"; do
+        echo -e "\tNumber of Processes: $p"
         mpirun -n $p ./build/mpi/scpa-mpi $1 $2 $3
     done
 }
@@ -20,6 +22,7 @@ mpi_run() {
 mpi_omp_run() {
     for p in "${p_vals[@]}"; do
         for t in "${p_vals[@]}"; do
+            echo -e "\tNumber of Processes: $p; Number of Threads: $t"
             mpirun -n $p ./build/mpi/scpa-mpi-omp $1 $2 $3 $t
         done
     done
@@ -28,6 +31,7 @@ mpi_omp_run() {
 # Syntax: omp_run <m> <n> <k>
 omp_run() {
     for t in "${p_vals[@]}"; do
+        echo -e "\tNumber of Threads: $t"
         ./build/omp/scpa-omp $1 $2 $3 $t
     done
 }
@@ -39,7 +43,7 @@ run() {
         return
     fi
     # Repeat computation for the matrix 64 times to get valid results
-    for ((i = 0; i < 64; i++)); do
+    for ((i = 0; i < $replicas; i++)); do
         if [ $1 == "mpi" ]; then
             mpi_run $2 $3 $4
         elif [ $1 == "mpi-omp" ]; then
