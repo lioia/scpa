@@ -150,8 +150,8 @@ int main(int argc, char **argv) {
   MPI_Reduce(send_buf, local_c, n * n_rows, MPI_FLOAT, MPI_SUM, 0, row_comm);
 
   // Array containing the data each process has to send and the offsets
-  int *col_recv_counts = malloc(sizeof(*col_recv_counts) * dims[1]);
-  int *col_offsets = malloc(sizeof(*col_offsets) * dims[1]);
+  int *col_recv_counts = malloc(sizeof(*col_recv_counts) * dims[0]);
+  int *col_offsets = malloc(sizeof(*col_offsets) * dims[0]);
   if (col_recv_counts == NULL || col_offsets == NULL) {
     perror("Error allocating column group");
     MPI_Abort(comm, -1);
