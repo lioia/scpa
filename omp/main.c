@@ -1,3 +1,4 @@
+#include <string.h>
 #ifdef _OPENMP
 #include <omp.h>
 #else
@@ -63,8 +64,8 @@ int main(int argc, char **argv) {
   // Allocating matrices
   a = malloc(sizeof(*a) * m * k);
   b = malloc(sizeof(*b) * n * k);
-  c = malloc(sizeof(*c) * m * m);           // Calculated C matrix
-  c_file = malloc(sizeof(*c_file) * m * m); // C matrix read from file
+  c = malloc(sizeof(*c) * m * n);           // Calculated C matrix
+  c_file = malloc(sizeof(*c_file) * m * n); // C matrix read from file
   if (a == NULL || b == NULL || c == NULL || c_file == NULL) {
     perror("Error allocating memory for matrices");
     return -1;
@@ -73,6 +74,7 @@ int main(int argc, char **argv) {
   fread(a, sizeof(*a), m * k, a_fp);
   fread(b, sizeof(*b), n * k, b_fp);
   fread(c_file, sizeof(*c_file), n * m, c_fp);
+  memset(c, 0, sizeof(*c) * m * n);
 
   // Parallel Computation
 #pragma omp parallel for private(i, j, l) shared(a, b, c) collapse(2)
@@ -100,5 +102,16 @@ int main(int argc, char **argv) {
   // Print final matrix (in debug mode only)
   matrix_print(c, m, n);
 #endif
+  fclose(a_fp);
+  fclose(b_fp);
+  fclose(c_fp);
+  free(a_path);
+  free(b_path);
+  free(c_path);
+  free(folder);
+  free(a);
+  free(b);
+  free(c);
+  free(c_file);
   return 0;
 }
