@@ -184,6 +184,10 @@ int main(int argc, char **argv) {
       // Only rank 0 allocates the necessary memory for the resulting c and the c loaded from file
       c = malloc(sizeof(*c) * m * n);
       c_file = malloc(sizeof(*c_file) * m * n);
+      if (c == NULL || c_file == NULL) {
+        perror("Error allocating C matrices");
+        MPI_Abort(comm, -1);
+      }
       // Reading matrix C from file
       fread(c_file, sizeof(*c_file), m * n, c_fp);
     }
@@ -210,8 +214,26 @@ int main(int argc, char **argv) {
       // Print final matrix
       matrix_print(c, m, n);
 #endif
+      free(c_file);
+      free(c);
     }
+    MPI_Comm_free(&col_comm);
   }
+  // Free
+  free(col_recv_counts);
+  free(col_offsets);
+  fclose(a_fp);
+  fclose(b_fp);
+  fclose(c_fp);
+  free(a_path);
+  free(b_path);
+  free(c_path);
+  free(folder);
+  free(local_a);
+  free(local_b);
+  free(local_c);
+  MPI_Comm_free(&row_comm);
+  MPI_Comm_free(&comm);
   MPI_Finalize();
   return 0;
 }

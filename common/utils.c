@@ -89,6 +89,7 @@ int write_stats(char *name, int m, int n, int k, int p, float time, float error)
   }
   // Write stats
   fprintf(fp, "%d,%d,%d,%d,%f,%f\n", m, n, k, p, time, error);
+  fclose(fp);
   free(path);
   return 0;
 }
