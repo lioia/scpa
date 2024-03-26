@@ -1,6 +1,16 @@
-build/
+# Development environment
+.direnv
 .cache/
-matrix/
+build/
+
+# Valgrind Output
 vgcore*
-output/
 valgrind-out.txt
+
+# Program output
+output/
+matrix/
+
+# Python environment
+.venv/
+venv/
