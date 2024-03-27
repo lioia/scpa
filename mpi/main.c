@@ -7,13 +7,11 @@
 #include <omp.h>
 #endif
 
+#include "../common/matrix.h"
 #include "../common/utils.h"
 #include "utils.h"
 
-// NOTE: this implementation is the variant with 2D on C; it is not the cyclic variant (just the block variant)
-// Decide whether to implement the other variants (this would also need another argument)
-
-// TODO: general refactor; divide into multiple functions based on various steps
+// NOTE: this implementation is the variant with 2D block distribution on C (not cyclic)
 
 int main(int argc, char **argv) {
   // Variable Declaration
@@ -22,13 +20,13 @@ int main(int argc, char **argv) {
   int start_cols, start_rows, end_cols, end_rows;  // Offsets based on topology
   float *local_a, *local_b, *local_c, *c, *c_file; // Matrices
   int rank, p;                                     // Process rank and number of processes
-  MPI_Comm comm;                                   // Custom communicator
+  MPI_Comm topologyComm, tempComm;                 // Custom communicator
   int dims[2], periods[2];                         // Topology dimensions
   int coords[2];                                   // Coordinates in topology
   char *folder, *a_path, *b_path, *c_path;         // Path for the specific matrix
   FILE *a_fp, *b_fp, *c_fp;                        // Files of the matrices
 
-// Based on the version being used, a different usage is required
+// Based on the version being used, a different number of arguments is required
 // In the OpenMP version the number of threads must be specified as an argument
 #ifdef _OPENMP
   if (argc != 5) {
@@ -48,11 +46,11 @@ int main(int argc, char **argv) {
   omp_set_num_threads(t);
 #endif
   MPI_Init(&argc, &argv);
+  MPI_Comm_dup(MPI_COMM_WORLD, &tempComm);
   double start_time = MPI_Wtime();
-  // Getting basics information; using MPI_COMM_WORLD as the new comm will be created by the topology
-  // NOTE: A new temp comm could also be used for this part
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  MPI_Comm_size(MPI_COMM_WORLD, &p);
+  // Getting basics information; using a temp communicator even though a new comm will be created by the topology
+  MPI_Comm_rank(tempComm, &rank);
+  MPI_Comm_size(tempComm, &p);
 
 #ifdef _OPENMP
   if (rank == 0)
@@ -60,11 +58,11 @@ int main(int argc, char **argv) {
 #endif
 
   // Topology
-  dims[0] = dims[1] = 0;                                       // Default assignment
-  periods[0] = periods[1] = 0;                                 // No wrapping
-  MPI_Dims_create(p, 2, dims);                                 // Create dimensions
-  MPI_Cart_create(MPI_COMM_WORLD, 2, dims, periods, 0, &comm); // Create topology
-  MPI_Cart_coords(comm, rank, 2, coords);                      // Get coords in topology
+  dims[0] = dims[1] = 0;                                         // Default assignment
+  periods[0] = periods[1] = 0;                                   // No wrapping
+  MPI_Dims_create(p, 2, dims);                                   // Create dimensions
+  MPI_Cart_create(tempComm, 2, dims, periods, 0, &topologyComm); // Create topology
+  MPI_Cart_coords(topologyComm, rank, 2, coords);                // Get coords in topology
 
   // Calculating offsets and number of items assigned to each process
   // Taking into account odd values and fair distribution
@@ -79,27 +77,27 @@ int main(int argc, char **argv) {
   local_c = malloc(sizeof(*local_c) * n_rows * n);
   if (local_a == NULL || local_b == NULL || local_c == NULL) {
     perror("Error allocating matrices");
-    MPI_Abort(comm, -1);
+    MPI_Abort(topologyComm, -1);
   }
   memset(local_c, 0, sizeof(*local_c) * n_rows * n);
   // Creating the path for the matrices
   folder = create_folder_path(m, n, k);
   if (folder == NULL)
-    MPI_Abort(comm, -1);
+    MPI_Abort(topologyComm, -1);
   a_path = create_file_path(folder, "a.bin");
   b_path = create_file_path(folder, "b.bin");
   c_path = create_file_path(folder, "c.bin");
   if (a_path == NULL || b_path == NULL || c_path == NULL)
-    MPI_Abort(comm, -1);
+    MPI_Abort(topologyComm, -1);
 
-  // TODO: convert to MPI File I/O
   a_fp = fopen(a_path, "r");
   b_fp = fopen(b_path, "r");
   c_fp = fopen(c_path, "r");
   if (a_fp == NULL || b_fp == NULL || c_fp == NULL) {
     perror("Error opening matrix files");
-    MPI_Abort(comm, -1);
+    MPI_Abort(topologyComm, -1);
   }
+
   // Read A matrix rows of this process
   for (size_t i = start_rows; i < end_rows; i++) {
     // Calculating where the row is in the file
@@ -111,6 +109,7 @@ int main(int argc, char **argv) {
     // Reading the entire row from the file
     fread(local_a + row_pos_in_array, sizeof(*local_a), k, a_fp);
   }
+
   // Read B matrix cols of this process
   int curr = 0; // Position in local array
   for (size_t j = 0; j < k; j++) {
@@ -138,10 +137,12 @@ int main(int argc, char **argv) {
   // 1. Each process sends the data to the first process in the row
   // 2. Each first process in the row, sends the data to the first process in the column
 
+  // 1. Each process sends the data to the first process in the row
+
   // Creating sub-partitions on topology; a sub-partition for every row
   int row_sub_coords[2] = {0, 1}; // [0] is for row (varying); [1] is for column (fixed)
   MPI_Comm row_comm;
-  MPI_Cart_sub(comm, row_sub_coords, &row_comm);
+  MPI_Cart_sub(topologyComm, row_sub_coords, &row_comm);
   // Getting the rank
   int row_rank;
   MPI_Comm_rank(row_comm, &row_rank);
@@ -152,20 +153,23 @@ int main(int argc, char **argv) {
   // Collecting results for every row
   MPI_Reduce(send_buf, local_c, n * n_rows, MPI_FLOAT, MPI_SUM, 0, row_comm);
 
+  // 2. Each first process in the row, sends the data to the first process in the column
+
   // Array containing the data each process has to send and the offsets
   int *col_recv_counts = malloc(sizeof(*col_recv_counts) * dims[0]);
   int *col_offsets = malloc(sizeof(*col_offsets) * dims[0]);
   if (col_recv_counts == NULL || col_offsets == NULL) {
     perror("Error allocating column group");
-    MPI_Abort(comm, -1);
+    MPI_Abort(topologyComm, -1);
   }
+
   // Calculating whether the process i is in the first column and how many data has to sends
   int col_idx = 0;
   for (size_t i = 0; i < p; i++) {
     // Getting the coordinates for this process
     int i_coords[2];
-    MPI_Cart_coords(comm, i, 2, i_coords);
-    if (i_coords[1] != 0) // not in the first column
+    MPI_Cart_coords(topologyComm, i, 2, i_coords);
+    if (i_coords[1] != 0) // not in the first column, so skipping
       continue;
     // Calculating offsets and size
     int start, end;
@@ -173,12 +177,13 @@ int main(int argc, char **argv) {
     col_recv_counts[col_idx] = (end - start) * n;
     col_offsets[col_idx++] = start * n;
   }
+
   // Creating new communicator for only the processes in the first column of the topology
   int color = MPI_UNDEFINED; // no subgroup
   if (coords[1] == 0)        // subgroup only for processes in the first column
     color = 1;
   MPI_Comm col_comm;
-  MPI_Comm_split(comm, color, rank, &col_comm); // topology communicator split based on column
+  MPI_Comm_split(topologyComm, color, rank, &col_comm); // topology communicator split based on column
   if (col_comm != MPI_COMM_NULL) {
     // Getting the rank in the new communicator
     int col_rank;
@@ -189,7 +194,7 @@ int main(int argc, char **argv) {
       c_file = malloc(sizeof(*c_file) * m * n);
       if (c == NULL || c_file == NULL) {
         perror("Error allocating C matrices");
-        MPI_Abort(comm, -1);
+        MPI_Abort(topologyComm, -1);
       }
       // Reading matrix C from file
       fread(c_file, sizeof(*c_file), m * n, c_fp);
@@ -211,10 +216,10 @@ int main(int argc, char **argv) {
 #endif
 
       if (write_stats(output_name, m, n, k, x_value, end_time - start_time, error))
-        MPI_Abort(comm, -1);
+        MPI_Abort(topologyComm, -1);
 
 #ifdef DEBUG
-      // Print final matrix
+      // Print final matrix in debug mode
       matrix_print(c, m, n);
 #endif
       free(c_file);
@@ -222,6 +227,7 @@ int main(int argc, char **argv) {
     }
     MPI_Comm_free(&col_comm);
   }
+
   // Free
   free(col_recv_counts);
   free(col_offsets);
@@ -236,7 +242,8 @@ int main(int argc, char **argv) {
   free(local_b);
   free(local_c);
   MPI_Comm_free(&row_comm);
-  MPI_Comm_free(&comm);
+  MPI_Comm_free(&topologyComm);
+  MPI_Comm_free(&tempComm);
   MPI_Finalize();
   return 0;
 }
