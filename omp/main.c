@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "../common/matrix.h"
 #include "../common/utils.h"
 
 int main(int argc, char **argv) {
