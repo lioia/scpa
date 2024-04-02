@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 
 #include "matrix.h"
 #include "utils.h"
@@ -42,28 +43,55 @@ int main(int argc, char **argv) {
     printf("Usage: %s <m> <n> <k>[ <type>]\n", argv[0]);
     exit(EXIT_FAILURE);
   }
-  // Parsing arguments
-  int m = strtol(argv[1], NULL, 10);
-  int n = strtol(argv[2], NULL, 10);
-  int k = strtol(argv[3], NULL, 10);
+  if (argc == 5 && !strncmp(argv[4], "index", 5) && !strncmp(argv[4], "random", 6)) {
+    printf("Incorrect type parameter: expected index or random, got %s\n", argv[4]);
+    exit(EXIT_FAILURE);
+  }
+
+  // Variable declaration
+  int m, n, k;                 // Matrix dimension
+  int type;                    // Generation type
+  float *a, *b, *c;            // Matrices
+  double start_time, end_time; // Computation start and end time
+  char *folder;                // Output folder
+
+  // Variable initialization
+  type = 0;
+  if (argc == 5)
+    type = !strncmp(argv[4], "index", 5);
+  m = parse_int_arg(argv[1]);
+  n = parse_int_arg(argv[1]);
+  k = parse_int_arg(argv[1]);
+  start_time = 0.0;
+  end_time = 0.0;
+
   // NOTE: with this implementation the first numbers of the matrices are always the same
-  srand(SEED); // Currently set as a define; can be probably an argument
+  // SEED is currently a define; can probably be set as an additional argument
+  srand(SEED);
   // Initializing all the matrices
-  int type = 0; // Random by default
-  if (argc == 5 && !strncmp(argv[4], "index", 5))
-    type = 1; // Index if specified
-  float *a = matrix_init(m, k, type);
-  float *b = matrix_init(k, n, type);
-  float *c = malloc(sizeof(*c) * m * n); // Not using matrix_init as it has to be an empty matrix
+  a = matrix_init(m, k, type);
+  b = matrix_init(k, n, type);
+  c = malloc(sizeof(*c) * m * n); // Not using matrix_init as it has to be an empty matrix
   if (a == NULL || b == NULL || c == NULL)
     exit(EXIT_FAILURE);
   memset(c, 0, sizeof(*c) * m * n);
 
+  // Setting start time
+  struct timeval tv;
+  gettimeofday(&tv, NULL);
+  start_time = tv.tv_sec + tv.tv_usec / 1000000.0;
+
   // Calculate c matrix in a serial computation
   matrix_serial_mult(a, b, c, m, n, k);
+  gettimeofday(&tv, NULL);
+  // Setting end time
+  end_time = tv.tv_sec + tv.tv_usec / 1000000.0;
+  // Writing stats
+  if (write_stats("serial.csv", m, n, k, 1, end_time - start_time, 0))
+    exit(EXIT_FAILURE);
 
   // Create folder path
-  char *folder = create_folder_path(m, n, k);
+  folder = create_folder_path(m, n, k);
   if (folder == NULL)
     exit(EXIT_FAILURE);
   // Same as mkdir -p folder bash command
@@ -92,5 +120,6 @@ int main(int argc, char **argv) {
   free(folder);
   free(a);
   free(b);
+  free(c);
   return 0;
 }
