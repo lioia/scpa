@@ -9,7 +9,6 @@ valgrind-out.txt
 
 # Program output
 output/
-matrix/
 
 # Python environment
 .venv/

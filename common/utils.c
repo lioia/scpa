@@ -22,7 +22,7 @@ int parse_int_arg(char *arg) {
 
 char *create_folder_path(int m, int n, int k) {
   // Calculating folder path size (+1 is for NULL-terminator)
-  int folder_path_size = snprintf(NULL, 0, "matrix/%dx%dx%d/", m, n, k) + 1;
+  int folder_path_size = snprintf(NULL, 0, "output/%dx%dx%d/", m, n, k) + 1;
   // Allocating memory for folder string
   char *folder = malloc(sizeof(*folder) * folder_path_size);
   if (folder == NULL) {
@@ -30,7 +30,7 @@ char *create_folder_path(int m, int n, int k) {
     return NULL;
   }
   // Writing folder path
-  snprintf(folder, folder_path_size * sizeof(*folder), "matrix/%dx%dx%d", m, n, k);
+  snprintf(folder, folder_path_size * sizeof(*folder), "output/%dx%dx%d", m, n, k);
   folder[folder_path_size - 1] = '\0'; // NULL-terminated string
   return folder;
 }
