@@ -2,6 +2,7 @@
 
 if ! [ -f ./build/scpa-matrix-generator ] || ! [ -f ./build/mpi/scpa-mpi ] || ! [ -f ./build/mpi/scpa-mpi-omp ] || ! [ -f ./build/omp/scpa-omp ]; then
     echo "The project was not built correctly. Building now..."
+    module load mpich # or module load mpi in local development environment
     cmake -B build && cmake --build build
 fi
 

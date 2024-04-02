@@ -130,6 +130,7 @@ int main(int argc, char **argv) {
 #pragma omp parallel for private(i, j, l) shared(local_a, local_b, local_c) collapse(2)
   for (i = 0; i < n_rows; i++)
     for (j = 0; j < n_cols; j++)
+#pragma omp simd
       for (l = 0; l < k; l++)
         local_c[i * n + j + start_cols] += local_a[i * k + l] * local_b[l * n_cols + j];
 
