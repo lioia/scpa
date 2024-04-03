@@ -60,8 +60,8 @@ int main(int argc, char **argv) {
   if (argc == 5)
     type = !strncmp(argv[4], "index", 5);
   m = parse_int_arg(argv[1]);
-  n = parse_int_arg(argv[1]);
-  k = parse_int_arg(argv[1]);
+  n = parse_int_arg(argv[2]);
+  k = parse_int_arg(argv[3]);
   start_time = 0.0;
   end_time = 0.0;
 
