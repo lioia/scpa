@@ -77,7 +77,7 @@ int matrix_write_to_file(FILE *fp, float *matrix, int rows, int cols) {
   fprintf(fp, "\n");
   return 0;
 }
-// NOTE: change order to see what is the fastest
+
 void matrix_serial_mult(float *a, float *b, float *c, int m, int n, int k) {
   for (size_t i = 0; i < m; i++)
     for (size_t j = 0; j < n; j++)
