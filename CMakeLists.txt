@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(scpa)
+project(scpa LANGUAGES C)
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
   set(CMAKE_EXPORT_COMPILE_COMMANDS ON)

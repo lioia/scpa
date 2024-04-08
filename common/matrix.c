@@ -80,7 +80,7 @@ int matrix_write_to_file(FILE *fp, float *matrix, int rows, int cols) {
 
 void matrix_serial_mult(float *a, float *b, float *c, int m, int n, int k) {
   for (size_t i = 0; i < m; i++)
-    for (size_t j = 0; j < n; j++)
-      for (size_t l = 0; l < k; l++)
+    for (size_t l = 0; l < k; l++)
+      for (size_t j = 0; j < n; j++)
         c[i * n + j] += a[i * k + l] * b[l * n + j];
 }
