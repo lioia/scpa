@@ -1,17 +1,23 @@
-import matplotlib.pyplot as plt
-import sys
 import csv
-from typing import List, Tuple, Dict
+import sys
+from dataclasses import dataclass
+from typing import Dict, List
+
+import matplotlib.pyplot as plt
 
 
-def csv_parser(
-    filepath: str, matrix_type: str
-) -> Dict[int, Tuple[List[str], List[float], List[float]]]:
+@dataclass
+class PerfList:
+    keys: List[str]
+    perfs: List[float]
+    errors: List[float]
+
+
+def csv_parser(filepath: str, matrix_type: str) -> Dict[int, PerfList]:
     if matrix_type != "rectangle" and matrix_type != "square":
         print("Wrong parameter passed to matrix_type")
         return {}
-    # processes -> Tuple[List(x), List(perf), Listerror)]
-    processes: Dict[int, Tuple[List[str], List[float], List[float]]] = {}
+    values: Dict[int, PerfList] = {}
     with open(filepath) as csvfile:
         reader = csv.reader(csvfile)
         next(reader, None)
@@ -26,14 +32,18 @@ def csv_parser(
             p = int(row[3])
             time = float(row[4])
             error = float(row[5])
-            perf = 2 * m * n * k / time
+            perf = (2 * m * n * k) / time
             key = f"{m}x{k}x{n}"
-            if p not in processes:
-                processes[p] = ([], [], [])
-            processes[p][0].append(key)
-            processes[p][1].append(perf / 1e9)
-            processes[p][2].append(error)
-    return processes
+            if p not in values:
+                values[p] = PerfList([], [], [])
+
+            if key in values[p].keys:
+                continue
+
+            values[p].keys.append(key)
+            values[p].perfs.append(perf / 1e9)
+            values[p].errors.append(error)
+    return values
 
 
 def get_label_from_calc_type(calc_type: str, process: int) -> str:
@@ -47,53 +57,38 @@ def get_label_from_calc_type(calc_type: str, process: int) -> str:
         raise
 
 
-def create_plot(
-    processes: Dict[int, Tuple[List[str], List[float], List[float]]],
+def create_line_plot(
+    processes: Dict[int, PerfList],
     calc_type: str,
-    graph_type: str,
     matrix_type: str,
 ):
-    if graph_type not in ["perf", "error"]:
-        print("Incorrect usage of create_plot")
-        exit()
-    plt.figure(figsize=(10, 8))
+    plt.figure(figsize=(20, 12))
     for process, values in processes.items():
-        x = values[0]
-        if graph_type == "perf":
-            y = values[1]
-        else:
-            y = values[2]
-        plt.plot(x, y, label=get_label_from_calc_type(calc_type, process))
-        if len(x) > 30:
-            subset_indices = range(0, len(x), len(x) // 30)
-            subset_labels = [x[i] for i in subset_indices]
-            plt.xticks(subset_indices, subset_labels, rotation=45)
-        else:
-            plt.xticks(x, rotation=45)
+        plt.plot(
+            values.keys,
+            values.perfs,
+            label=get_label_from_calc_type(calc_type, process),
+        )
+        plt.xticks(values.keys, rotation=90)
 
     plt.xlabel("MxKxN")
-    if graph_type == "perf":
-        plt.ylabel("GFLOPS")
-    elif graph_type == "error":
-        plt.ylabel("Error")
+    plt.ylabel("GFLOPS")
     plt.legend()
-    plt.savefig(f"output/{calc_type}_{graph_type}_{matrix_type}.png")
+    plt.savefig(f"output/{calc_type}_{matrix_type}.png")
 
 
-def main(filepath: str, calc_type: str):
-    p = csv_parser(filepath, "square")
-    create_plot(p, calc_type, "perf", "square")
-    create_plot(p, calc_type, "error", "square")
-    p = csv_parser(filepath, "rectangle")
-    create_plot(p, calc_type, "perf", "rectangle")
-    create_plot(p, calc_type, "error", "rectangle")
+def main(folder: str):
+    types = ["mpi", "omp", "mpi-omp"]
+    matrix_types = ["square", "rectangle"]
+    for matrix_type in matrix_types:
+        for calc_type in types:
+            filepath = f"{folder}/{calc_type}.csv"
+            values = csv_parser(filepath, matrix_type)
+            create_line_plot(values, calc_type, matrix_type)
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print(f"Usage: python -m {sys.argv[0]} <path/to/file.csv> <calc_type>")
+    if len(sys.argv) != 2:
+        print(f"Usage: python -m {sys.argv[0]} <output_folder>")
         exit()
-    if sys.argv[2] not in ["mpi", "omp", "mpi-omp"]:
-        print("Unrecognized calc_type")
-        exit()
-    main(sys.argv[1], sys.argv[2])
+    main(sys.argv[1])

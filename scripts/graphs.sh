@@ -8,12 +8,8 @@ source .venv/bin/activate > /dev/null
 echo "Installing packages"
 pip install -r requirements.txt > /dev/null
 
-echo "Creating graphs for MPI"
-python3 graphs/main.py ./output/mpi.csv mpi > /dev/null
-echo "Creating graphs for OpenMP"
-python3 graphs/main.py ./output/mpi-omp.csv mpi-omp > /dev/null
-echo "Creating graphs for MPI+OpenMP"
-python3 graphs/main.py ./output/omp.csv omp > /dev/null
+echo "Creating graphs"
+python3 graphs/main.py ./output
 
 echo "Cleaning up"
 deactivate > /dev/null
