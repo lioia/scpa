@@ -5,7 +5,8 @@ build/
 
 # Valgrind Output
 vgcore*
-valgrind-out.txt
+valgrind*
+callgrind*
 
 # Program output
 output/
