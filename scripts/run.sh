@@ -62,18 +62,26 @@ run() {
 main() {
     echo "Square Matrices"
     for m in "${size_vals[@]}"; do
-        echo -e "\tGenerating Matrix (size: ${m})"
-        ./build/scpa-matrix-generator $m $m $m $2
-        run $1 $m $m $m
+        if [[ $1 == "generate" ]]; then
+            echo -e "\tGenerating Matrix (size: ${m})"
+            ./build/scpa-matrix-generator $m $m $m $2
+        else
+            echo -e "\tRunning (size: ${m})"
+            run $1 $m $m $m
+        fi
     done
     echo "Rectangle Matrices"
     for m in "${size_vals[@]}"; do
         for n in "${size_vals[@]}"; do
             for k in "${k_vals[@]}"; do
                 if [[ m -ne n ]] && [[ m -ne n ]] && [[ n -ne k ]]; then 
-                    echo -e "\tGenerating Matrix (m: ${m}, n: ${n}, k: ${k})"
-                    ./build/scpa-matrix-generator $m $n $k $2
-                    run $1 $m $n $k
+                    if [[ $1 == "generate" ]]; then
+                        echo -e "\tGenerating Matrix (m: ${m}, n: ${n}, k: ${k})"
+                        ./build/scpa-matrix-generator $m $n $k $2
+                    else
+                        echo -e "\tRunning (m: ${m}, n: ${n}, k: ${k})"
+                        run $1 $m $n $k
+                    fi
                 fi
             done
         done
