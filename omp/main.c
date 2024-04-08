@@ -1,4 +1,3 @@
-#include <string.h>
 #ifdef _OPENMP
 #include <omp.h>
 #else
@@ -6,6 +5,7 @@
 #endif
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #ifdef DEBUG
 #include "../common/matrix.h"
