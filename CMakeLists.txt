@@ -6,7 +6,7 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
   add_compile_definitions(DEBUG)
 endif()
 
-set(CMAKE_CXX_FLAGS "-O3")
+set(CMAKE_C_FLAGS "-O3")
 
 add_subdirectory(mpi)
 add_subdirectory(omp)
