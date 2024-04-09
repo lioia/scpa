@@ -1,7 +1,7 @@
 import csv
 import sys
 from dataclasses import dataclass
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import matplotlib.pyplot as plt
 
@@ -77,8 +77,8 @@ def create_line_plot(
     plt.savefig(f"output/{calc_type}_{matrix_type}.png")
 
 
-def main(folder: str):
-    types = ["mpi", "omp", "mpi-omp"]
+def main(folder: str, calc_type: Optional[str]):
+    types = ["mpi", "omp", "mpi-omp"] if calc_type is None else [calc_type]
     matrix_types = ["square", "rectangle"]
     for matrix_type in matrix_types:
         for calc_type in types:
@@ -88,7 +88,7 @@ def main(folder: str):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print(f"Usage: python -m {sys.argv[0]} <output_folder>")
+    if len(sys.argv) < 2:
+        print(f"Usage: python -m {sys.argv[0]} <output_folder>[, <calc_type>]")
         exit()
-    main(sys.argv[1])
+    main(sys.argv[1], sys.argv[2])
