@@ -58,16 +58,14 @@ void transpose(float *source, float *transposed, int n, int k) {
 // Parallel computation
 void calculate(float *a, float *b, float *c, int m, int n, int k) {
   int i, j, l;
+  // Using collapse(2) instead of 3 to optimize write access
+  // (with collapse 3, the tmp variable cannot be used)
 #pragma omp parallel for private(i, j, l) shared(a, b, c) collapse(2)
   // Parallel Computation
   for (i = 0; i < m; i++) {
     for (j = 0; j < n; j++) {
-      // Using SIMD only if it's worth using it;
-      // 8 is determined by 256 bits / 32 bits which are:
-      // - 256 bits: AVX2 register size (CPU also supports AVX512)
-      // - 32 bits: size of float
-#pragma omp if (k % 8 == 0) simd
       float tmp = 0.0;
+#pragma omp simd
       for (l = 0; l < k; l++)
         tmp += a[i * k + l] * b[j * k + l];
       c[i * n + j] += tmp;
