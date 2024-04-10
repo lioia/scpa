@@ -12,7 +12,9 @@ int matrix_write_bin_to_file(char *folder, char *name, float *matrix, int rows, 
 int matrix_write_txt_to_file(char *folder, char *name, float *matrix, int rows, int cols);
 // Print matrix to stdout
 void matrix_print(float *matrix, int rows, int cols);
-// Serial implementation of C = C + A * B
+// Serial implementation
 void matrix_serial_mult(float *a, float *b, float *c, int m, int n, int k);
+// Parallel implementation
+void matrix_parallel_mult(float *a, float *b, float *c, int m, int n, int k, int offset);
 
 #endif // !MATRIX_H

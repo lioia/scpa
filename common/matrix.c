@@ -88,3 +88,21 @@ void matrix_serial_mult(float *a, float *b, float *c, int m, int n, int k) {
     }
   }
 }
+
+void matrix_parallel_mult(float *a, float *b, float *c, int m, int n, int k, int offset) {
+  int i, j, l;
+  // Using collapse(2) instead of 3 to optimize write access
+  // (with collapse 3, the tmp variable cannot be used)
+#pragma omp parallel for private(i, j, l) shared(a, b, c) collapse(2)
+  // Parallel Computation
+  for (i = 0; i < m; i++) {
+    for (j = 0; j < n; j++) {
+      float tmp = 0.0;
+#pragma omp simd
+      for (l = 0; l < k; l++) {
+        tmp += a[i * k + l] * b[j * k + l];
+      }
+      c[i * n + j + offset] += tmp;
+    }
+  }
+}

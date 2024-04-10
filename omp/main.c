@@ -7,9 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifdef DEBUG
 #include "../common/matrix.h"
-#endif
 #include "../common/utils.h"
 
 // Read matrices from file
@@ -49,28 +47,11 @@ int read_matrices(float *a, float *b, float *c, int m, int n, int k) {
 }
 
 // Transpose matrix
-void transpose(float *source, float *transposed, int n, int k) {
-  for (int i = 0; i < n; i++)
-    for (int j = 0; j < k; j++)
-      transposed[i * k + j] = source[j * n + i];
-}
-
-// Parallel computation
-void calculate(float *a, float *b, float *c, int m, int n, int k) {
-  int i, j, l;
-  // Using collapse(2) instead of 3 to optimize write access
-  // (with collapse 3, the tmp variable cannot be used)
-#pragma omp parallel for private(i, j, l) shared(a, b, c) collapse(2)
-  // Parallel Computation
-  for (i = 0; i < m; i++) {
-    for (j = 0; j < n; j++) {
-      float tmp = 0.0;
-#pragma omp simd
-      for (l = 0; l < k; l++)
-        tmp += a[i * k + l] * b[j * k + l];
-      c[i * n + j] += tmp;
+void transpose(float *source, float *transposed, int rows, int cols) {
+  for (int i = 0; i < rows; i++)
+    for (int j = 0; j < cols; j++) {
+      transposed[i * cols + j] = source[j * rows + i];
     }
-  }
 }
 
 int main(int argc, char **argv) {
@@ -122,7 +103,7 @@ int main(int argc, char **argv) {
   transpose(b, b_t, n, k);
 
   // Calculate using OpenMP
-  calculate(a, b_t, c, m, n, k);
+  matrix_parallel_mult(a, b_t, c, m, n, k, 0);
 
 // Just like before, calculate the time using OpenMP or a system-call
 #ifdef _OPENMP
