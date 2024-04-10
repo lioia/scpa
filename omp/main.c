@@ -56,7 +56,7 @@ void transpose(float *source, float *transposed, int rows, int cols) {
 
 int main(int argc, char **argv) {
   // Variable definition
-  int m, n, k, p;                  // From CLI, matrices size and number of threads
+  int m, n, k, t;                  // From CLI, matrices size and number of threads
   double start_time = 0.0;         // Start time of computation
   double end_time = 0.0;           // End time of computation
   float *a, *b, *b_t, *c, *c_file; // Matrices
@@ -69,11 +69,11 @@ int main(int argc, char **argv) {
   m = parse_int_arg(argv[1]);
   n = parse_int_arg(argv[2]);
   k = parse_int_arg(argv[3]);
-  p = parse_int_arg(argv[4]);
+  t = parse_int_arg(argv[4]);
 
   // Different behavior based on if it's running with OpenMP
 #ifdef _OPENMP
-  omp_set_num_threads(p);       // Set threads based on argument from CLI
+  omp_set_num_threads(t);       // Set threads based on argument from CLI
   start_time = omp_get_wtime(); // Get time from OpenMP
 #else
   // Get time with a system-call when OpenMP is not being used
@@ -117,7 +117,7 @@ int main(int argc, char **argv) {
   float error = calculate_error(c, c_file, m, n);
 
   // Writing stats to file
-  if (write_stats("omp.csv", m, n, k, p, end_time - start_time, error))
+  if (write_stats("omp.csv", m, n, k, 0, t, end_time - start_time, error))
     exit(EXIT_FAILURE);
 
 #ifdef DEBUG

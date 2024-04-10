@@ -1,7 +1,7 @@
 import csv
 import sys
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import matplotlib.pyplot as plt
 
@@ -13,11 +13,11 @@ class PerfList:
     errors: List[float]
 
 
-def csv_parser(filepath: str, matrix_type: str) -> Dict[int, PerfList]:
+def csv_parser(filepath: str, matrix_type: str) -> Dict[Tuple[int, int], PerfList]:
     if matrix_type != "rectangle" and matrix_type != "square":
         print("Wrong parameter passed to matrix_type")
         return {}
-    values: Dict[int, PerfList] = {}
+    values: Dict[Tuple[int, int], PerfList] = {}
     with open(filepath) as csvfile:
         reader = csv.reader(csvfile)
         next(reader, None)
@@ -30,35 +30,37 @@ def csv_parser(filepath: str, matrix_type: str) -> Dict[int, PerfList]:
             elif matrix_type == "square" and (m != n or m != k or k != n):
                 continue
             p = int(row[3])
-            time = float(row[4])
-            error = float(row[5])
+            t = int(row[4])
+            time = float(row[5])
+            error = float(row[6])
             perf = (2 * m * n * k) / time
             key = f"{m}x{k}x{n}"
-            if p not in values:
-                values[p] = PerfList([], [], [])
+            x = (p, t)
+            if x not in values:
+                values[x] = PerfList([], [], [])
 
-            if key in values[p].keys:
+            if key in values[x].keys:
                 continue
 
-            values[p].keys.append(key)
-            values[p].perfs.append(perf / 1e9)
-            values[p].errors.append(error)
+            values[x].keys.append(key)
+            values[x].perfs.append(perf / 1e9)
+            values[x].errors.append(error)
     return values
 
 
-def get_label_from_calc_type(calc_type: str, process: int) -> str:
+def get_label_from_calc_type(calc_type: str, process: Tuple[int, int]) -> str:
     if calc_type == "mpi":
-        return f"Processes: {process}"
+        return f"Processes: {process[0]}"
     elif calc_type == "omp":
-        return f"Threads: {process}"
+        return f"Threads: {process[1]}"
     elif calc_type == "mpi-omp":
-        return f"Processes * Threads: {process}"
+        return f"Processes * Threads: {process[0] * process[1]}"
     else:
         raise
 
 
 def create_line_plot(
-    processes: Dict[int, PerfList],
+    processes: Dict[Tuple[int, int], PerfList],
     calc_type: str,
     matrix_type: str,
 ):

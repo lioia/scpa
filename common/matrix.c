@@ -82,9 +82,8 @@ void matrix_serial_mult(float *a, float *b, float *c, int m, int n, int k) {
   for (size_t i = 0; i < m; i++) {
     for (size_t l = 0; l < k; l++) {
       float a_tmp = a[i * k + l];
-      for (size_t j = 0; j < n; j++) {
+      for (size_t j = 0; j < n; j++)
         c[i * n + j] += a_tmp * b[l * n + j];
-      }
     }
   }
 }
@@ -99,9 +98,8 @@ void matrix_parallel_mult(float *a, float *b, float *c, int m, int n, int k, int
     for (j = 0; j < n; j++) {
       float tmp = 0.0;
 #pragma omp simd
-      for (l = 0; l < k; l++) {
+      for (l = 0; l < k; l++)
         tmp += a[i * k + l] * b[j * k + l];
-      }
       c[i * n + j + offset] += tmp;
     }
   }
