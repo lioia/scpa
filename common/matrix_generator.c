@@ -87,7 +87,7 @@ int main(int argc, char **argv) {
   // Setting end time
   end_time = tv.tv_sec + tv.tv_usec / 1000000.0;
   // Writing stats
-  if (write_stats("serial.csv", m, n, k, 1, end_time - start_time, 0))
+  if (write_stats("serial.csv", m, n, k, 1, 1, end_time - start_time, 0))
     exit(EXIT_FAILURE);
 
   // Create folder path
