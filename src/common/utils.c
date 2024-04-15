@@ -53,8 +53,8 @@ char *create_file_path(char *folder, char *name) {
 
 float calculate_error(float *c, float *c_file, int m, int n) {
   float error = 0.0;
-  for (size_t i = 0; i < m; i++) {
-    for (size_t j = 0; j < n; j++) {
+  for (int i = 0; i < m; i++) {
+    for (int j = 0; j < n; j++) {
       // NOTE: maybe use a better metric
       float diff = c[i * n + j] - c_file[i * n + j];
       error += diff > 0 ? diff : -diff;

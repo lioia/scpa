@@ -4,8 +4,8 @@
 #include <sys/stat.h>
 #include <sys/time.h>
 
-#include "matrix.h"
-#include "utils.h"
+#include "../common/matrix.h"
+#include "../common/utils.h"
 
 #define SEED 12345
 

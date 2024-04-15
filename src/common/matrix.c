@@ -17,7 +17,7 @@ float *matrix_init(int rows, int cols, int type) {
     return NULL;
   }
   // Set elements value (index or random, based on type)
-  for (size_t i = 0; i < rows * cols; i++)
+  for (int i = 0; i < rows * cols; i++)
     matrix[i] = type ? i : (float)rand() / RAND_MAX;
   return matrix;
 }
@@ -65,8 +65,8 @@ int matrix_write_txt_to_file(char *folder, char *name, float *matrix, int rows, 
 void matrix_print(float *matrix, int rows, int cols) { matrix_write_to_file(stdout, matrix, rows, cols); }
 
 int matrix_write_to_file(FILE *fp, float *matrix, int rows, int cols) {
-  for (size_t i = 0; i < rows; i++) {
-    for (size_t j = 0; j < cols; j++) {
+  for (int i = 0; i < rows; i++) {
+    for (int j = 0; j < cols; j++) {
       fprintf(fp, "%f", matrix[i * cols + j]);
       if (j != cols - 1)
         fprintf(fp, ", ");
@@ -79,16 +79,16 @@ int matrix_write_to_file(FILE *fp, float *matrix, int rows, int cols) {
 }
 
 void matrix_serial_mult(float *a, float *b, float *c, int m, int n, int k) {
-  for (size_t i = 0; i < m; i++) {
-    for (size_t l = 0; l < k; l++) {
+  for (int i = 0; i < m; i++) {
+    for (int l = 0; l < k; l++) {
       float a_tmp = a[i * k + l];
-      for (size_t j = 0; j < n; j++)
+      for (int j = 0; j < n; j++)
         c[i * n + j] += a_tmp * b[l * n + j];
     }
   }
 }
 
-void matrix_parallel_mult(float *a, float *b, float *c, int m, int n, int k, int offset) {
+void matrix_parallel_mult(float *a, float *b, float *c, int m, int n, int k, int row_offset, int col_offset) {
   int i, j, l;
   // Using collapse(2) instead of 3 to optimize write access
   // (with collapse 3, the tmp variable cannot be used)
@@ -98,9 +98,30 @@ void matrix_parallel_mult(float *a, float *b, float *c, int m, int n, int k, int
     for (j = 0; j < n; j++) {
       float tmp = 0.0;
 #pragma omp simd
-      for (l = 0; l < k; l++)
+      for (l = 0; l < k; l++) {
         tmp += a[i * k + l] * b[j * k + l];
-      c[i * n + j + offset] += tmp;
+      }
+      c[i * (n + row_offset) + j + col_offset] += tmp;
     }
   }
+}
+
+void matrix_read_transposed(float *matrix, FILE *m_fp, int n, int k, int start_cols, int end_cols) {
+  // Read matrix cols of this process (as transposed for better read access during multiplication)
+  for (int i = start_cols; i < end_cols; i++) {
+    for (int j = 0; j < k; j++) {
+      // Calculating where the value is in the file
+      int pos_in_file = j * n + i;
+      // Moving to the value in the file
+      fseek(m_fp, pos_in_file * sizeof(*matrix), SEEK_SET);
+      // Reading the value into a temp variable
+      float value = 0.0;
+      fread(&value, sizeof(value), 1, m_fp);
+      // Saving the value in the local array
+      *matrix = value;
+      matrix++; // Moving the pointer forward
+    }
+  }
+  // Resetting the pointer to the start of the array
+  matrix -= (end_cols - start_cols) * k;
 }

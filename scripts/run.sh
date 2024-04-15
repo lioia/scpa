@@ -3,7 +3,7 @@
 # $1: calculation type: mpi or omp or mpi-omp
 # $2: generation type: random or index
 
-if ! [ -f ./build/scpa-matrix-generator ] || ! [ -f ./build/mpi/scpa-mpi ] || ! [ -f ./build/mpi/scpa-mpi-omp ] || ! [ -f ./build/omp/scpa-omp ]; then
+if ! [ -f ./build/bin/scpa-matrix-generator ] || ! [ -f ./build/bin/scpa-mpi ] || ! [ -f ./build/bin/scpa-mpi-omp ] || ! [ -f ./build/bin/scpa-omp ]; then
     echo "The project was not built correctly. Building now..."
     module load gnu mpich # or module load mpi in local development environment
     cmake -B build && cmake --build build
@@ -17,7 +17,7 @@ p_vals=(2 4 8 16 24 32)
 mpi_run() {
     for p in "${p_vals[@]}"; do
         echo -e "\tNumber of Processes: $p (m: ${1}, n: ${2}, k: ${3})"
-        mpirun -n $p ./build/mpi/scpa-mpi $1 $2 $3
+        mpirun -n $p ./build/bin/scpa-mpi $1 $2 $3
     done
 }
 
@@ -30,7 +30,7 @@ mpi_omp_run() {
             t=${p_vals[j]}
             x=$((p * t))
             echo -e "\tNumber of Processes: $p; Number of Threads: $t (m: ${1}, n: ${2}, k: ${3}; x = ${x})"
-            mpirun -n $p ./build/mpi/scpa-mpi-omp $1 $2 $3 $t
+            mpirun -n $p ./build/bin/scpa-mpi-omp $1 $2 $3 $t
         done
     done
 }
@@ -39,7 +39,7 @@ mpi_omp_run() {
 omp_run() {
     for t in "${p_vals[@]}"; do
         echo -e "\tNumber of Threads: $t (m: ${1}, n: ${2}, k: ${3})"
-        ./build/omp/scpa-omp $1 $2 $3 $t
+        ./build/bin/scpa-omp $1 $2 $3 $t
     done
 }
 
@@ -64,7 +64,7 @@ main() {
     for m in "${size_vals[@]}"; do
         if [[ $1 == "generate" ]]; then
             echo -e "\tGenerating Matrix (size: ${m})"
-            ./build/scpa-matrix-generator $m $m $m $2
+            ./build/bin/scpa-matrix-generator $m $m $m $2
         else
             echo -e "\tRunning (size: ${m})"
             run $1 $m $m $m
@@ -74,10 +74,10 @@ main() {
     for m in "${size_vals[@]}"; do
         for n in "${size_vals[@]}"; do
             for k in "${k_vals[@]}"; do
-                if [[ m -ne n ]] && [[ m -ne n ]] && [[ n -ne k ]]; then 
+                if [[ m -ne n ]] || [[ m -ne k ]]; then 
                     if [[ $1 == "generate" ]]; then
                         echo -e "\tGenerating Matrix (m: ${m}, n: ${n}, k: ${k})"
-                        ./build/scpa-matrix-generator $m $n $k $2
+                        ./build/bin/scpa-matrix-generator $m $n $k $2
                     else
                         echo -e "\tRunning (m: ${m}, n: ${n}, k: ${k})"
                         run $1 $m $n $k

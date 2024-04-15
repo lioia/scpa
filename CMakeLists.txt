@@ -10,8 +10,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(CMAKE_C_FLAGS "-O3")
 
-add_subdirectory(mpi)
-add_subdirectory(omp)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-add_executable(scpa-matrix-generator common/matrix_generator.c common/matrix.c
-                                     common/utils.c)
+add_subdirectory(src/generator)
+add_subdirectory(src/mpi)
+add_subdirectory(src/omp)

@@ -1,5 +1,6 @@
 #ifndef MATRIX_H
 #define MATRIX_H
+#include <stdio.h>
 
 // Matrix helper functions
 
@@ -15,6 +16,8 @@ void matrix_print(float *matrix, int rows, int cols);
 // Serial implementation
 void matrix_serial_mult(float *a, float *b, float *c, int m, int n, int k);
 // Parallel implementation
-void matrix_parallel_mult(float *a, float *b, float *c, int m, int n, int k, int offset);
+void matrix_parallel_mult(float *a, float *b, float *c, int m, int n, int k, int row_offset, int col_offset);
+// Read Matrix transposed (better read access)
+void matrix_read_transposed(float *matrix, FILE *m_fp, int n, int k, int start_cols, int end_cols);
 
 #endif // !MATRIX_H
