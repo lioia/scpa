@@ -99,29 +99,11 @@ void matrix_parallel_mult(float *a, float *b, float *c, int m, int n, int k, int
       float tmp = 0.0;
 #pragma omp simd
       for (l = 0; l < k; l++) {
-        tmp += a[i * k + l] * b[j * k + l];
+        float a_tmp = a[i * k + l];
+        float b_tmp = b[j * k + l];
+        tmp += a_tmp * b_tmp;
       }
       c[i * (n + row_offset) + j + col_offset] += tmp;
     }
   }
-}
-
-void matrix_read_transposed(float *matrix, FILE *m_fp, int n, int k, int start_cols, int end_cols) {
-  // Read matrix cols of this process (as transposed for better read access during multiplication)
-  for (int i = start_cols; i < end_cols; i++) {
-    for (int j = 0; j < k; j++) {
-      // Calculating where the value is in the file
-      int pos_in_file = j * n + i;
-      // Moving to the value in the file
-      fseek(m_fp, pos_in_file * sizeof(*matrix), SEEK_SET);
-      // Reading the value into a temp variable
-      float value = 0.0;
-      fread(&value, sizeof(value), 1, m_fp);
-      // Saving the value in the local array
-      *matrix = value;
-      matrix++; // Moving the pointer forward
-    }
-  }
-  // Resetting the pointer to the start of the array
-  matrix -= (end_cols - start_cols) * k;
 }

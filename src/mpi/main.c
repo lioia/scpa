@@ -61,7 +61,22 @@ int read_matrices(char *folder, int m, int n, int k, int start_rows, int end_row
   }
 
   // Read B matrix cols of this processes (transposed for better read access)
-  matrix_read_transposed(b, b_fp, n, k, start_cols, end_cols);
+  for (int i = start_cols; i < end_cols; i++) {
+    for (int j = 0; j < k; j++) {
+      // Calculating where the value is in the file
+      int pos_in_file = j * n + i;
+      // Moving to the value in the file
+      fseek(b_fp, pos_in_file * sizeof(*b), SEEK_SET);
+      // Reading the value into a temp variable
+      float value = 0.0;
+      fread(&value, sizeof(value), 1, b_fp);
+      // Saving the value in the local array
+      *b = value;
+      b++; // Moving the pointer forward
+    }
+  }
+  // Resetting the pointer to the start of the array
+  b -= (end_cols - start_cols) * k;
 
   // Freeing memory
   fclose(a_fp);

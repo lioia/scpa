@@ -10,6 +10,15 @@
 #include "../common/matrix.h"
 #include "../common/utils.h"
 
+void transpose(float *source, float *transposed, int rows, int cols) {
+  int i, j;
+#pragma omp parallel for private(i, j) shared(source, transposed)
+  for (int j = 0; j < cols; j++)
+#pragma omp simd if (rows % 8 == 0)
+    for (int i = 0; i < rows; i++)
+      transposed[j * rows + i] = source[i * cols + j];
+}
+
 // Read matrices from file
 int read_matrices(float *a, float *b, float *c, int m, int n, int k) {
   // Create folder path, based on matrix sizes
@@ -32,7 +41,7 @@ int read_matrices(float *a, float *b, float *c, int m, int n, int k) {
   }
   // Read matrices from file
   fread(a, sizeof(*a), m * k, a_fp);
-  matrix_read_transposed(b, b_fp, n, k, 0, n);
+  fread(b, sizeof(*b), k * n, b_fp);
   fread(c, sizeof(*c), n * m, c_fp);
   // Closing file
   fclose(a_fp);
@@ -48,10 +57,10 @@ int read_matrices(float *a, float *b, float *c, int m, int n, int k) {
 
 int main(int argc, char **argv) {
   // Variable definition
-  int m, n, k, t;            // From CLI, matrices size and number of threads
-  double start_time = 0.0;   // Start time of computation
-  double end_time = 0.0;     // End time of computation
-  float *a, *b, *c, *c_file; // Matrices
+  int m, n, k, t;                  // From CLI, matrices size and number of threads
+  double start_time = 0.0;         // Start time of computation
+  double end_time = 0.0;           // End time of computation
+  float *a, *b, *b_t, *c, *c_file; // Matrices
 
   // Parse arguments from command line
   if (argc != 5) {
@@ -77,10 +86,11 @@ int main(int argc, char **argv) {
 
   // Allocating matrices
   a = malloc(sizeof(*a) * m * k);
-  b = malloc(sizeof(*b) * n * k);
+  b = malloc(sizeof(*b) * k * n);
+  b_t = malloc(sizeof(*b_t) * n * k);
   c = malloc(sizeof(*c) * m * n);           // Calculated C matrix
   c_file = malloc(sizeof(*c_file) * m * n); // C matrix read from file
-  if (a == NULL || b == NULL || c == NULL || c_file == NULL) {
+  if (a == NULL || b == NULL || b_t == NULL || c == NULL || c_file == NULL) {
     perror("Error allocating memory for matrices");
     return -1;
   }
@@ -90,8 +100,11 @@ int main(int argc, char **argv) {
     return -1;
   memset(c, 0, sizeof(*c) * m * n);
 
+  // Transpose (better cache read access)
+  transpose(b, b_t, k, n);
+
   // Calculate using OpenMP
-  matrix_parallel_mult(a, b, c, m, n, k, 0, 0);
+  matrix_parallel_mult(a, b_t, c, m, n, k, 0, 0);
 
 // Just like before, calculate the time using OpenMP or a system-call
 #ifdef _OPENMP
@@ -109,13 +122,14 @@ int main(int argc, char **argv) {
     exit(EXIT_FAILURE);
 
 #ifdef DEBUG
-  // Print final matrix (in debug mode only)
-  matrix_print(c, m, n);
+    // Print final matrix (in debug mode only)
+    // matrix_print(c, m, n);
 #endif
 
   // Free memory
   free(a);
   free(b);
+  free(b_t);
   free(c);
   free(c_file);
   return 0;
