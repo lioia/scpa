@@ -9,7 +9,7 @@ echo "Installing packages"
 pip install -r requirements.txt > /dev/null
 
 echo "Creating graphs"
-python3 graphs/main.py ./output
+python3 src/graphs/main.py ./output
 
 echo "Cleaning up"
 deactivate > /dev/null
