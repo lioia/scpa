@@ -14,6 +14,8 @@ int matrix_write_txt_to_file(char *folder, char *name, float *matrix, int rows, 
 void matrix_print(float *matrix, int rows, int cols);
 // Serial implementation
 void matrix_serial_mult(float *a, float *b, float *c, int m, int n, int k);
+// Transpose matrix
+void matrix_transpose(float *source, float *transposed, int rows, int cols);
 // Parallel implementation
 void matrix_parallel_mult(float *a, float *b, float *c, int m, int n, int k, int row_offset, int col_offset);
 

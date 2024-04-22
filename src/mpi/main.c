@@ -51,32 +51,26 @@ int read_matrices(char *folder, int m, int n, int k, int start_rows, int end_row
   // Read A matrix rows of this process
   for (int i = start_rows; i < end_rows; i++) {
     // Calculating where the row is in the file
-    int row_pos_in_file = i * k;
+    int offset_file = i * k;
     // Calculating where the row should be placed in the local array
-    int row_pos_in_array = (i - start_rows) * k;
+    int offset_array = (i - start_rows) * k;
     // Moving to the current row in the file
-    fseek(a_fp, row_pos_in_file * sizeof(*a), SEEK_SET);
+    fseek(a_fp, offset_file * sizeof(*a), SEEK_SET);
     // Reading the entire row from the file
-    fread(a + row_pos_in_array, sizeof(*a), k, a_fp);
+    fread(a + offset_array, sizeof(*a), k, a_fp);
   }
 
-  // Read B matrix cols of this processes (transposed for better read access)
-  for (int i = start_cols; i < end_cols; i++) {
-    for (int j = 0; j < k; j++) {
-      // Calculating where the value is in the file
-      int pos_in_file = j * n + i;
-      // Moving to the value in the file
-      fseek(b_fp, pos_in_file * sizeof(*b), SEEK_SET);
-      // Reading the value into a temp variable
-      float value = 0.0;
-      fread(&value, sizeof(value), 1, b_fp);
-      // Saving the value in the local array
-      *b = value;
-      b++; // Moving the pointer forward
-    }
+  // Read B matrix cols of this process
+  for (int i = 0; i < k; i++) {
+    // Calculating where the row starts in the file
+    int offset_file = i * n + start_cols;
+    // Calculating where the cols should be placed in the local array
+    int offset_array = i * (end_cols - start_cols);
+    // Moving to the current col in the file
+    fseek(b_fp, offset_file * sizeof(*b), SEEK_SET);
+    // Reading the cols from the file
+    fread(b + offset_array, sizeof(*b), end_cols - start_cols, b_fp);
   }
-  // Resetting the pointer to the start of the array
-  b -= (end_cols - start_cols) * k;
 
   // Freeing memory
   fclose(a_fp);
@@ -91,7 +85,7 @@ int main(int argc, char **argv) {
   // Variable Declaration
   int m = 0, n = 0, k = 0;                               // Matrix dimension (from arguments)
   int start_cols, start_rows, end_cols, end_rows;        // Offsets based on topology
-  float *a, *b, *c, *c_file;                             // Matrices
+  float *a, *b, *b_t, *c, *c_file;                       // Matrices
   int p, t;                                              // Number of processes and threads
   int row_color, col_color;                              // Row and column communicator discriminator
   int rank, row_rank, col_rank;                          // Ranks in 2D Topology, row and column comm
@@ -170,7 +164,8 @@ int main(int argc, char **argv) {
   // Allocating matrices
   a = malloc(sizeof(*a) * (end_rows - start_rows) * k);
   b = malloc(sizeof(*b) * (end_cols - start_cols) * k);
-  if (a == NULL || b == NULL) {
+  b_t = malloc(sizeof(*b_t) * (end_cols - start_cols) * k);
+  if (a == NULL || b == NULL || b_t == NULL) {
     perror("Error allocating matrices");
     return -1;
   }
@@ -183,6 +178,9 @@ int main(int argc, char **argv) {
   // Read matrices
   if (read_matrices(folder, m, n, k, start_rows, end_rows, start_cols, end_cols, a, b) != 0)
     MPI_Abort(topology_comm, -1);
+
+  // Transposed B matrix (better read access)
+  matrix_transpose(b, b_t, k, end_cols - start_cols);
 
   // Calculating C matrix size based on the process type
   c_size = col_rank == 0 ? m * n : n_rows * n; // Column root allocates the entire C matrix
@@ -197,7 +195,7 @@ int main(int argc, char **argv) {
   memset(c, 0, sizeof(*c) * c_size);
 
   // Perform local multiplication for a sub-matrix in a serial way (or using OpenMP if enabled)
-  matrix_parallel_mult(a, b, c, n_rows, n_cols, k, n - n_cols, start_cols);
+  matrix_parallel_mult(a, b_t, c, n_rows, n_cols, k, n - n_cols, start_cols);
 
   // Collect data:
   // 1. Processes in each row communicator send the data to each root row process
@@ -276,8 +274,8 @@ int main(int argc, char **argv) {
         MPI_Abort(topology_comm, -1);
 
 #ifdef DEBUG
-      // Print final matrix in debug mode
-      matrix_print(c, m, n);
+        // Print final matrix in debug mode
+        // matrix_print(c, m, n);
 #endif
 
       // Free memory used by the root column process

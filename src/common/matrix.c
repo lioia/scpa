@@ -88,6 +88,15 @@ void matrix_serial_mult(float *a, float *b, float *c, int m, int n, int k) {
   }
 }
 
+void matrix_transpose(float *source, float *transposed, int rows, int cols) {
+  int i, j;
+#pragma omp parallel for private(i, j) shared(source, transposed)
+  for (int j = 0; j < cols; j++)
+#pragma omp simd if (rows % 8 == 0)
+    for (int i = 0; i < rows; i++)
+      transposed[j * rows + i] = source[i * cols + j];
+}
+
 void matrix_parallel_mult(float *a, float *b, float *c, int m, int n, int k, int row_offset, int col_offset) {
   int i, j, l;
   // Using collapse(2) instead of 3 to optimize write access

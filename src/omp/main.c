@@ -10,15 +10,6 @@
 #include "../common/matrix.h"
 #include "../common/utils.h"
 
-void transpose(float *source, float *transposed, int rows, int cols) {
-  int i, j;
-#pragma omp parallel for private(i, j) shared(source, transposed)
-  for (int j = 0; j < cols; j++)
-#pragma omp simd if (rows % 8 == 0)
-    for (int i = 0; i < rows; i++)
-      transposed[j * rows + i] = source[i * cols + j];
-}
-
 // Read matrices from file
 int read_matrices(float *a, float *b, float *c, int m, int n, int k) {
   // Create folder path, based on matrix sizes
@@ -101,7 +92,7 @@ int main(int argc, char **argv) {
   memset(c, 0, sizeof(*c) * m * n);
 
   // Transpose (better cache read access)
-  transpose(b, b_t, k, n);
+  matrix_transpose(b, b_t, k, n);
 
   // Calculate using OpenMP
   matrix_parallel_mult(a, b_t, c, m, n, k, 0, 0);
