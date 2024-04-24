@@ -9,8 +9,9 @@ if ! [ -f ./build/bin/scpa-matrix-generator ] || ! [ -f ./build/bin/scpa-mpi ] |
     cmake -B build && cmake --build build
 fi
 
+square_size_vals=(32 64 128 256 512 1024 2048 4096 8192)
+m_n_vals=(256 512 1024 2048 4096 8192)
 k_vals=(32 64 128 156)
-size_vals=(32 64 128 256 512 1024 2048 4096 8192)
 p_vals=(2 4 8 16 24 32)
 
 # Syntax: mpi_run <m> <n> <k>
@@ -61,7 +62,7 @@ run() {
 # Syntax: main[ <calc_type> <gen_type>]
 main() {
     echo "Square Matrices"
-    for m in "${size_vals[@]}"; do
+    for m in "${square_size_vals[@]}"; do
         if [[ $1 == "generate" ]]; then
             echo -e "\tGenerating Matrix (size: ${m})"
             ./build/bin/scpa-matrix-generator $m $m $m $2
@@ -71,8 +72,8 @@ main() {
         fi
     done
     echo "Rectangle Matrices"
-    for m in "${size_vals[@]}"; do
-        for n in "${size_vals[@]}"; do
+    for m in "${m_n_vals[@]}"; do
+        for n in "${m_n_vals[@]}"; do
             for k in "${k_vals[@]}"; do
                 if [[ m -ne n ]] || [[ m -ne k ]]; then 
                     if [[ $1 == "generate" ]]; then
