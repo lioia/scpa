@@ -24,12 +24,17 @@ mpi_run() {
 
 # Syntax: mpi_omp_run <m> <n> <k>
 mpi_omp_run() {
-    for ((p = 2; p <= 8; p *= 2)); do
-        for ((t = p; t <= 32; t *= 2)); do
-            x=$((p * t))
-            echo -e "\tNumber of Processes: $p; Number of Threads: $t (m: ${1}, n: ${2}, k: ${3}; x = ${x})"
-            mpirun -n $p ./build/bin/scpa-mpi-omp $1 $2 $3 $t
-        done
+    p=2
+    for ((t = 4; t <= 16; t += 4)); do
+        x=$((p * t))
+        echo -e "\tNumber of Processes: $p; Number of Threads: $t (m: ${1}, n: ${2}, k: ${3}; x = ${x})"
+        mpirun -n $p ./build/bin/scpa-mpi-omp $1 $2 $3 $t
+    done
+    p=4
+    for ((t = 4; t <= 8; t += 2)); do
+        x=$((p * t))
+        echo -e "\tNumber of Processes: $p; Number of Threads: $t (m: ${1}, n: ${2}, k: ${3}; x = ${x})"
+        mpirun -n $p ./build/bin/scpa-mpi-omp $1 $2 $3 $t
     done
 }
 
