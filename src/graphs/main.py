@@ -54,16 +54,12 @@ def get_label_from_calc_type(calc_type: str, process: Tuple[int, int]) -> str:
     elif calc_type == "omp":
         return f"Threads: {process[1]}"
     elif calc_type == "mpi-omp":
-        return f"Processes * Threads: {process[0] * process[1]}"
+        return f"Processes * Threads: {process[0]} * {process[1]} = {process[0] * process[1]}"
     else:
         raise
 
 
-def create_line_plot(
-    processes: Dict[Tuple[int, int], PerfList],
-    calc_type: str,
-    matrix_type: str,
-):
+def square_plot(processes: Dict[Tuple[int, int], PerfList], calc_type: str):
     plt.figure(figsize=(20, 12))
     for process, values in processes.items():
         plt.plot(
@@ -76,17 +72,15 @@ def create_line_plot(
     plt.xlabel("MxKxN")
     plt.ylabel("GFLOPS")
     plt.legend()
-    plt.savefig(f"output/{calc_type}_{matrix_type}.png")
+    plt.savefig(f"output/{calc_type}_square.png")
 
 
 def main(folder: str, calc_type: Optional[str]):
     types = ["mpi", "omp", "mpi-omp"] if calc_type is None else [calc_type]
-    matrix_types = ["square", "rectangle"]
-    for matrix_type in matrix_types:
-        for calc_type in types:
-            filepath = f"{folder}/{calc_type}.csv"
-            values = csv_parser(filepath, matrix_type)
-            create_line_plot(values, calc_type, matrix_type)
+    for calc_type in types:
+        filepath = f"{folder}/{calc_type}.csv"
+        square = csv_parser(filepath, "square")
+        square_plot(square, calc_type)
 
 
 if __name__ == "__main__":
