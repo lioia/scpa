@@ -8,6 +8,10 @@ import matplotlib.pyplot as plt
 
 @dataclass
 class PerfList:
+    ms: List[int]
+    ns: List[int]
+    ks: List[int]
+    times: List[float]
     keys: List[str]
     perfs: List[float]
     errors: List[float]
@@ -37,11 +41,15 @@ def csv_parser(filepath: str, matrix_type: str) -> Dict[Tuple[int, int], PerfLis
             key = f"{m}x{k}x{n}"
             x = (p, t)
             if x not in values:
-                values[x] = PerfList([], [], [])
+                values[x] = PerfList([], [], [], [], [], [], [])
 
             if key in values[x].keys:
                 continue
 
+            values[x].ms.append(m)
+            values[x].ks.append(k)
+            values[x].ns.append(n)
+            values[x].times.append(time)
             values[x].keys.append(key)
             values[x].perfs.append(perf / 1e9)
             values[x].errors.append(error)
@@ -75,12 +83,32 @@ def square_plot(processes: Dict[Tuple[int, int], PerfList], calc_type: str):
     plt.savefig(f"output/{calc_type}_square.png")
 
 
+def speedup_square_plot(
+    serial: PerfList,
+    processes: Dict[Tuple[int, int], PerfList],
+    calc_type: str,
+):
+    plt.figure(figsize=(20, 12))
+    for process, values in processes.items():
+        plt.plot(
+            values.keys,
+            [serial.times[i] / values.times[i] for i in range(len(values.times))],
+            label=get_label_from_calc_type(calc_type, process),
+        )
+    plt.xlabel("MxKxN")
+    plt.ylabel("Speed Up")
+    plt.legend()
+    plt.savefig(f"output/speedup_{calc_type}_square.png")
+
+
 def main(folder: str, calc_type: Optional[str]):
     types = ["mpi", "omp", "mpi-omp"] if calc_type is None else [calc_type]
+    serial_square = csv_parser(f"{folder}/serial.csv", "square")[(1, 1)]
     for calc_type in types:
         filepath = f"{folder}/{calc_type}.csv"
         square = csv_parser(filepath, "square")
         square_plot(square, calc_type)
+        speedup_square_plot(serial_square, square, calc_type)
 
 
 if __name__ == "__main__":
