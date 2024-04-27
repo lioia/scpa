@@ -1,20 +1,9 @@
 import csv
 import sys
-from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Optional, Tuple
 
-import matplotlib.pyplot as plt
-
-
-@dataclass
-class PerfList:
-    ms: List[int]
-    ns: List[int]
-    ks: List[int]
-    times: List[float]
-    keys: List[str]
-    perfs: List[float]
-    errors: List[float]
+from utils import PerfList
+from square import square_plot, speedup_square_plot
 
 
 def csv_parser(filepath: str, matrix_type: str) -> Dict[Tuple[int, int], PerfList]:
@@ -54,51 +43,6 @@ def csv_parser(filepath: str, matrix_type: str) -> Dict[Tuple[int, int], PerfLis
             values[x].perfs.append(perf / 1e9)
             values[x].errors.append(error)
     return values
-
-
-def get_label_from_calc_type(calc_type: str, process: Tuple[int, int]) -> str:
-    if calc_type == "mpi":
-        return f"Processes: {process[0]}"
-    elif calc_type == "omp":
-        return f"Threads: {process[1]}"
-    elif calc_type == "mpi-omp":
-        return f"Processes * Threads: {process[0]} * {process[1]} = {process[0] * process[1]}"
-    else:
-        raise
-
-
-def square_plot(processes: Dict[Tuple[int, int], PerfList], calc_type: str):
-    plt.figure(figsize=(20, 12))
-    for process, values in processes.items():
-        plt.plot(
-            values.keys,
-            values.perfs,
-            label=get_label_from_calc_type(calc_type, process),
-        )
-        plt.xticks(values.keys, rotation=90)
-
-    plt.xlabel("MxKxN")
-    plt.ylabel("GFLOPS")
-    plt.legend()
-    plt.savefig(f"output/{calc_type}_square.png")
-
-
-def speedup_square_plot(
-    serial: PerfList,
-    processes: Dict[Tuple[int, int], PerfList],
-    calc_type: str,
-):
-    plt.figure(figsize=(20, 12))
-    for process, values in processes.items():
-        plt.plot(
-            values.keys,
-            [serial.times[i] / values.times[i] for i in range(len(values.times))],
-            label=get_label_from_calc_type(calc_type, process),
-        )
-    plt.xlabel("MxKxN")
-    plt.ylabel("Speed Up")
-    plt.legend()
-    plt.savefig(f"output/speedup_{calc_type}_square.png")
 
 
 def main(folder: str, calc_type: Optional[str]):
