@@ -1,58 +1,28 @@
-import csv
 import sys
-from typing import Dict, Optional, Tuple
+from typing import Optional
+import pandas as pd
 
-from utils import PerfList
+from rectangle import rectangle_plot
 from square import square_plot, speedup_square_plot
-
-
-def csv_parser(filepath: str, matrix_type: str) -> Dict[Tuple[int, int], PerfList]:
-    if matrix_type != "rectangle" and matrix_type != "square":
-        print("Wrong parameter passed to matrix_type")
-        return {}
-    values: Dict[Tuple[int, int], PerfList] = {}
-    with open(filepath) as csvfile:
-        reader = csv.reader(csvfile)
-        next(reader, None)
-        for row in reader:
-            m = int(row[0])
-            n = int(row[1])
-            k = int(row[2])
-            if matrix_type == "rectangle" and m == n and m == k and k == n:
-                continue
-            elif matrix_type == "square" and (m != n or m != k or k != n):
-                continue
-            p = int(row[3])
-            t = int(row[4])
-            time = float(row[5])
-            error = float(row[6])
-            perf = (2 * m * n * k) / time
-            key = f"{m}x{k}x{n}"
-            x = (p, t)
-            if x not in values:
-                values[x] = PerfList([], [], [], [], [], [], [])
-
-            if key in values[x].keys:
-                continue
-
-            values[x].ms.append(m)
-            values[x].ks.append(k)
-            values[x].ns.append(n)
-            values[x].times.append(time)
-            values[x].keys.append(key)
-            values[x].perfs.append(perf / 1e9)
-            values[x].errors.append(error)
-    return values
 
 
 def main(folder: str, calc_type: Optional[str]):
     types = ["mpi", "omp", "mpi-omp"] if calc_type is None else [calc_type]
-    serial_square = csv_parser(f"{folder}/serial.csv", "square")[(1, 1)]
+    serial = pd.read_csv(f"{folder}/serial.csv")
+    serial_square = serial[(serial["m"] == serial["n"]) & (serial["n"] == serial["k"])]
+    # serial_rectangle = pd.concat([serial, serial_square]).drop_duplicates(keep=False)
     for calc_type in types:
         filepath = f"{folder}/{calc_type}.csv"
-        square = csv_parser(filepath, "square")
-        square_plot(square, calc_type)
-        speedup_square_plot(serial_square, square, calc_type)
+        df = pd.read_csv(filepath)
+        square = df[(df["m"] == df["n"]) & (df["n"] == df["k"])]
+        square_plot(pd.DataFrame(square), calc_type)
+        speedup_square_plot(
+            pd.DataFrame(serial_square),
+            pd.DataFrame(square),
+            calc_type,
+        )
+        rectangle = pd.concat([df, square]).drop_duplicates(keep=False)
+        rectangle_plot(pd.DataFrame(rectangle), calc_type)
 
 
 if __name__ == "__main__":
