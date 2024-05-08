@@ -1,6 +1,5 @@
 #include <errno.h>
 #include <mpi.h>
-#include <mpi_proto.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
