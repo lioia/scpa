@@ -8,7 +8,8 @@ endif()
 # Create compile_commands.json, used by clangd LSP
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-set(CMAKE_C_FLAGS "-O3")
+add_compile_options(-O3)
+add_compile_options(-march=native)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 

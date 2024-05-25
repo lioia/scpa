@@ -9,10 +9,12 @@ if ! [ -f ./build/bin/scpa-matrix-generator ] || ! [ -f ./build/bin/scpa-mpi ] |
     cmake -B build && cmake --build build
 fi
 
-square_size_vals=(32 64 128 256 512 1024 2048 4096 8192)
-m_n_vals=(256 512 1024 2048 4096 8192)
+square_size_vals=(32 64 128 256 512 1024 2500 5000 10000)
+m_n_vals=(2500 5000 10000)
 k_vals=(32 64 128 156)
 p_vals=(2 4 8 16 24 32)
+
+num_iterations=20
 
 # Syntax: mpi_run <m> <n> <k>
 mpi_run() {
@@ -83,7 +85,9 @@ main() {
                         ./build/bin/scpa-matrix-generator $m $n $k $2
                     else
                         echo -e "\tRunning (m: ${m}, n: ${n}, k: ${k})"
-                        run $1 $m $n $k
+                        for ((i=1; i<=$num_iterations; i++)); do
+                            run $1 $m $n $k
+                        done
                     fi
                 fi
             done
