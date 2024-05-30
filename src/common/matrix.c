@@ -108,9 +108,7 @@ void matrix_parallel_mult(float *a, float *b, float *c, int m, int n, int k, int
       float tmp = 0.0;
 #pragma omp simd
       for (l = 0; l < k; l++) {
-        float a_tmp = a[i * k + l];
-        float b_tmp = b[j * k + l];
-        tmp += a_tmp * b_tmp;
+        tmp += a[i * k + l] * b[j * k + l];
       }
       c[i * (n + row_offset) + j + col_offset] += tmp;
     }
