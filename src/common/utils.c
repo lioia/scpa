@@ -1,5 +1,6 @@
 #include <errno.h>
 #include <limits.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -20,65 +21,60 @@ int parse_int_arg(char *arg) {
   return val;
 }
 
-char *create_folder_path(int m, int n, int k) {
-  // Calculating folder path size (+1 is for NULL-terminator)
-  int folder_path_size = snprintf(NULL, 0, "output/%dx%dx%d/", m, n, k) + 1;
-  // Allocating memory for folder string
-  char *folder = malloc(sizeof(*folder) * folder_path_size);
-  if (folder == NULL) {
-    perror("Error allocating memory for folder path");
-    return NULL;
-  }
-  // Writing folder path
-  snprintf(folder, folder_path_size * sizeof(*folder), "output/%dx%dx%d", m, n, k);
-  folder[folder_path_size - 1] = '\0'; // NULL-terminated string
-  return folder;
+float frobenius_norm(int m, int n, float *matrix) {
+  float sum = 0.0;
+  for (int i = 0; i < m * n; i++)
+    sum += matrix[i] * matrix[i];
+  return sqrt(sum);
 }
 
-char *create_file_path(char *folder, char *name) {
-  // Calculating filepath size; + 2 is for `/` and `\0`
-  int filename_size = strlen(folder) + strlen(name) + 2;
-  // Allocate memory for filename
-  char *filename = malloc(sizeof(*filename) * filename_size);
-  if (filename == NULL) {
-    perror("Error allocating memory for filename");
-    return NULL;
+float calculate_error(float *c, float *c_serial, int m, int n) {
+  float *diff = malloc(sizeof(*diff) * m * n);
+  if (diff == NULL) {
+    perror("Error allocating matrix diff");
+    return -1;
   }
-  // Write filename path
-  sprintf(filename, "%s/%s", folder, name);
-  // NULL-terminate the string
-  filename[filename_size - 1] = '\0';
-  return filename;
+
+  // Calculate the difference matrix D = C - C_serial and store in diff
+  for (int i = 0; i < m * n; i++)
+    diff[i] = c[i] - c_serial[i];
+
+  // Calculate the Frobenius norms
+  float norm_diff = frobenius_norm(m, n, diff);
+  float norm_c = frobenius_norm(m, n, c);
+
+  return norm_diff / norm_c;
 }
 
-float calculate_error(float *c, float *c_file, int m, int n) {
-  float error = 0.0;
-  for (int i = 0; i < m; i++) {
-    for (int j = 0; j < n; j++) {
-      // NOTE: maybe use a better metric
-      float diff = c[i * n + j] - c_file[i * n + j];
-      error += diff > 0 ? diff : -diff;
-    }
-  }
-  return error;
-}
-
-int write_stats(char *name, int m, int n, int k, int p, int t, float time, float error) {
+int write_stats(char *name, int m, int n, int k, int p, int t, double error, double generation_time,
+                double parallel_time, double serial_time, double first_comm_time, double last_comm_time) {
   // Creating folder; not checking errors as it can already exists
   mkdir("output", 0777);
-  char *path = create_file_path("output", name);
-  if (path == NULL)
+  // Calculating filepath size; + 8 is for `output`, `/` and `\0`
+  int path_size = strlen(name) + 8;
+  // Allocate memory for filename
+  char *path = malloc(sizeof(*path) * path_size);
+  if (path == NULL) {
+    perror("Error allocating memory for filename");
     return -1;
+  }
+  // Write filename path
+  sprintf(path, "output/%s", name);
+  // NULL-terminate the string
+  path[path_size - 1] = '\0';
+
   FILE *fp;
+  // Checking if the file already exists
   if (access(path, W_OK)) {
-    // File does not exists (or it cannot be written to); creating new file with write permissions
+    // File does not exists (or it cannot be written to);
+    // creating new file with write permissions
     fp = fopen(path, "w+");
     if (fp == NULL) {
       perror("Error creating output file");
       return -1;
     }
     // Write header
-    fprintf(fp, "m,n,k,p,t,time,error\n");
+    fprintf(fp, "m,n,k,p,t,error,g_t,p_t,s_t,comm_1_t,comm_2_t\n");
   } else {
     // File exists; opening
     fp = fopen(path, "a");
@@ -88,7 +84,8 @@ int write_stats(char *name, int m, int n, int k, int p, int t, float time, float
     }
   }
   // Write stats
-  fprintf(fp, "%d,%d,%d,%d,%d,%f,%f\n", m, n, k, p, t, time, error);
+  fprintf(fp, "%d,%d,%d,%d,%d,%f,", m, n, k, p, t, error);
+  fprintf(fp, "%f,%f,%f,%f,%f\n", generation_time, parallel_time, serial_time, first_comm_time, last_comm_time);
   fclose(fp);
   free(path);
   return 0;

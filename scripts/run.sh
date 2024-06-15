@@ -1,12 +1,16 @@
 #!/bin/bash
 
 # $1: calculation type: mpi or omp or mpi-omp
-# $2: generation type: random or index
 
-if ! [ -f ./build/bin/scpa-matrix-generator ] || ! [ -f ./build/bin/scpa-mpi ] || ! [ -f ./build/bin/scpa-mpi-omp ] || ! [ -f ./build/bin/scpa-omp ]; then
-    echo "The project was not built correctly. Building now..."
+if ! [ -f ./build/bin/scpa-mpi ] || ! [ -f ./build/bin/scpa-mpi-omp ] || ! [ -f ./build/bin/scpa-omp ]; then
+    echo "The project was not built. Building now..."
     module load gnu mpich # or module load mpi in local development environment
     cmake -B build && cmake --build build
+fi
+
+if [[ "$1" != "mpi" && "$1" != "omp" && "$1" != "mpi-omp" ]]; then
+    echo "Incorrect argument $1: expecting mpi, omp or mpi-omp"
+    exit 1
 fi
 
 square_size_vals=(32 64 128 256 512 1024 2500 5000 10000)
@@ -63,36 +67,26 @@ run() {
     fi
 }
 
-# Syntax: main[ <calc_type> <gen_type>]
+# Syntax: main[ <calc_type>]
 main() {
     echo "Square Matrices"
     for m in "${square_size_vals[@]}"; do
-        if [[ $1 == "generate" ]]; then
-            echo -e "\tGenerating Matrix (size: ${m})"
-            ./build/bin/scpa-matrix-generator $m $m $m $2
-        else
-            echo -e "\tRunning (size: ${m})"
-            run $1 $m $m $m
-        fi
+        echo -e "\tRunning (size: ${m})"
+        run $1 $m $m $m
     done
     echo "Rectangle Matrices"
     for m in "${m_n_vals[@]}"; do
         for n in "${m_n_vals[@]}"; do
             for k in "${k_vals[@]}"; do
                 if [[ m -ne n ]] || [[ m -ne k ]]; then 
-                    if [[ $1 == "generate" ]]; then
-                        echo -e "\tGenerating Matrix (m: ${m}, n: ${n}, k: ${k})"
-                        ./build/bin/scpa-matrix-generator $m $n $k $2
-                    else
-                        echo -e "\tRunning (m: ${m}, n: ${n}, k: ${k})"
-                        for ((i=1; i<=$num_iterations; i++)); do
-                            run $1 $m $n $k
-                        done
-                    fi
+                    echo -e "\tRunning (m: ${m}, n: ${n}, k: ${k})"
+                    for ((i=1; i<=$num_iterations; i++)); do
+                        run $1 $m $n $k
+                    done
                 fi
             done
         done
     done
 }
 
-main $1 $2
+main $1

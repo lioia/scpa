@@ -10,28 +10,13 @@
 
 #include "../common/matrix.h"
 #include "../common/utils.h"
+#include "utils.h"
 
-// NOTE: this implementation is the variant with 2D block distribution on C (not cyclic)
-
-// Calculate (start, end) based on the number of processes and dimension of the block
-void calculate_start_end(int size, int dims, int coord, int *start, int *end) {
-  int block_size = size / dims;
-  int rest = size % dims; // Used to fairly distribute work
-  *start = coord * block_size % size;
-  *end = 0;
-  // Fairly distribute work based on the rank (coord in the topology)
-  if (coord < rest) {
-    *start += coord;
-    *end += 1;
-  } else {
-    *start += rest;
-  }
-  *end += *start + block_size;
-}
+// TODO: remove as it is an unusable implementation
 
 // Read portion of the matrices
-int read_matrices(char *folder, int m, int n, int k, int start_rows, int end_rows, int start_cols, int end_cols,
-                  float *a, float *b) {
+int read_block_matrices(char *folder, int m, int n, int k, int start_rows, int end_rows, int start_cols, int end_cols,
+                        float *a, float *b) {
   char *a_path, *b_path;
   FILE *a_fp, *b_fp;
 
@@ -83,6 +68,7 @@ int read_matrices(char *folder, int m, int n, int k, int start_rows, int end_row
 int main(int argc, char **argv) {
   // Variable Declaration
   int m = 0, n = 0, k = 0;                               // Matrix dimension (from arguments)
+  int i, j, l;                                           // Loop Control Variables
   int start_cols, start_rows, end_cols, end_rows;        // Offsets based on topology
   float *a, *b, *b_t, *c, *c_file;                       // Matrices
   int p, t;                                              // Number of processes and threads
@@ -175,7 +161,7 @@ int main(int argc, char **argv) {
     MPI_Abort(topology_comm, -1);
 
   // Read matrices
-  if (read_matrices(folder, m, n, k, start_rows, end_rows, start_cols, end_cols, a, b) != 0)
+  if (read_block_matrices(folder, m, n, k, start_rows, end_rows, start_cols, end_cols, a, b) != 0)
     MPI_Abort(topology_comm, -1);
 
   // Transposed B matrix (better read access)
@@ -194,7 +180,20 @@ int main(int argc, char **argv) {
   memset(c, 0, sizeof(*c) * c_size);
 
   // Perform local multiplication for a sub-matrix in a serial way (or using OpenMP if enabled)
-  matrix_parallel_mult(a, b_t, c, n_rows, n_cols, k, n - n_cols, start_cols);
+  // Using collapse(2) instead of 3 to optimize write access
+  // (with collapse 3, the tmp variable cannot be used)
+#pragma omp parallel for private(i, j, l) shared(a, b, c) collapse(2)
+  // Parallel Computation
+  for (i = 0; i < m; i++) {
+    for (j = 0; j < n; j++) {
+      float tmp = 0.0;
+#pragma omp simd
+      for (l = 0; l < k; l++) {
+        tmp += a[i * k + l] * b[j * k + l];
+      }
+      c[i * n_cols + j + start_cols] += tmp;
+    }
+  }
 
   // Collect data:
   // 1. Processes in each row communicator send the data to each root row process

@@ -10,48 +10,30 @@
 #include "../common/matrix.h"
 #include "../common/utils.h"
 
-// Read matrices from file
-int read_matrices(float *a, float *b, float *c, int m, int n, int k) {
-  // Create folder path, based on matrix sizes
-  char *folder = create_folder_path(m, n, k);
-  if (folder == NULL)
-    return -1;
-  // Create file path for matrix A, B and C
-  char *a_path = create_file_path(folder, "a.bin");
-  char *b_path = create_file_path(folder, "b.bin");
-  char *c_path = create_file_path(folder, "c.bin");
-  if (a_path == NULL || b_path == NULL || c_path == NULL)
-    return -1;
-  // Open matrix file in read mode
-  FILE *a_fp = fopen(a_path, "r");
-  FILE *b_fp = fopen(b_path, "r");
-  FILE *c_fp = fopen(c_path, "r");
-  if (a_fp == NULL || b_fp == NULL || c_fp == NULL) {
-    perror("Error opening files");
-    return -1;
-  }
-  // Read matrices from file
-  fread(a, sizeof(*a), m * k, a_fp);
-  fread(b, sizeof(*b), k * n, b_fp);
-  fread(c, sizeof(*c), n * m, c_fp);
-  // Closing file
-  fclose(a_fp);
-  fclose(b_fp);
-  fclose(c_fp);
-  // Freeing unused memory
-  free(a_path);
-  free(b_path);
-  free(c_path);
-  free(folder);
-  return 0;
+// Helper function to calculate the time using OpenMP or gettimeofday
+// inlined as most of the time is just a single function call
+double get_time() {
+#ifdef _OPENMP
+  return omp_get_wtime(); // Get time from OpenMP
+#else
+  // Get time with a system-call when OpenMP is not being used
+  struct timeval tv;
+  gettimeofday(&tv, NULL);
+  // Convert to the same format used by omp_get_wtime
+  return tv.tv_sec + tv.tv_usec / 1000000.0;
+#endif
 }
 
 int main(int argc, char **argv) {
   // Variable definition
-  int m, n, k, t;                  // From CLI, matrices size and number of threads
-  double start_time = 0.0;         // Start time of computation
-  double end_time = 0.0;           // End time of computation
-  float *a, *b, *b_t, *c, *c_file; // Matrices
+  int m, n, k, t;                    // From CLI, matrices size and number of threads
+  double start_time = 0.0;           // Start time of checkpoint
+  double g_time = 0.0;               // Delta time for generation
+  double p_time = 0.0;               // Delta time for parallel computation
+  double s_time = 0.0;               // Delta time for serial computation
+  double error = 0.0;                // Difference between serial and parallel computation
+  float *a, *b, *b_t, *c, *c_serial; // Matrices
+  enum gen_type_t type = RANDOM;     // Generation type
 
   // Parse arguments from command line
   if (argc != 5) {
@@ -63,58 +45,53 @@ int main(int argc, char **argv) {
   k = parse_int_arg(argv[3]);
   t = parse_int_arg(argv[4]);
 
-  // Different behavior based on if it's running with OpenMP
 #ifdef _OPENMP
-  omp_set_num_threads(t);       // Set threads based on argument from CLI
-  start_time = omp_get_wtime(); // Get time from OpenMP
+  omp_set_num_threads(t); // Set threads based on argument from CLI
 #else
-  // Get time with a system-call when OpenMP is not being used
-  struct timeval tv;
-  gettimeofday(&tv, NULL);
-  start_time = tv.tv_sec + tv.tv_usec / 1000000.0; // Convert to the same format used by omp_get_wtime
   printf("[WARN] Not running OpenMP\n");
+#endif
+  start_time = get_time();
+
+#ifdef DEBUG
+  type = INDEX;
 #endif
 
   // Allocating matrices
-  a = malloc(sizeof(*a) * m * k);
-  b = malloc(sizeof(*b) * k * n);
+  a = matrix_init(m, k, type, 0);
+  b = matrix_init(k, n, type, 1);
   b_t = malloc(sizeof(*b_t) * n * k);
-  c = malloc(sizeof(*c) * m * n);           // Calculated C matrix
-  c_file = malloc(sizeof(*c_file) * m * n); // C matrix read from file
-  if (a == NULL || b == NULL || b_t == NULL || c == NULL || c_file == NULL) {
-    perror("Error allocating memory for matrices");
+  c = matrix_init(m, n, type, 2);        // Initial C matrix
+  c_serial = matrix_init(m, n, type, 2); // Initial C matrix, used for serial multiplication
+  if (a == NULL || b == NULL || b_t == NULL || c == NULL) {
+    perror("Error creating matrices");
     return -1;
   }
-
-  // Read matrices from files
-  if (read_matrices(a, b, c_file, m, n, k) != 0)
-    return -1;
-  memset(c, 0, sizeof(*c) * m * n);
 
   // Transpose (better cache read access)
   matrix_transpose(b, b_t, k, n);
 
-  // Calculate using OpenMP
-  matrix_parallel_mult(a, b_t, c, m, n, k, 0, 0);
+  g_time = get_time() - start_time;
 
-// Just like before, calculate the time using OpenMP or a system-call
-#ifdef _OPENMP
-  end_time = omp_get_wtime();
-#else
-  gettimeofday(&tv, NULL);
-  end_time = tv.tv_sec + tv.tv_usec / 1000000.0;
-#endif
+  // Calculate using OpenMP
+  start_time = get_time();
+  matrix_parallel_mult(a, b_t, c, m, n, k, n, 0, 0);
+  p_time = get_time() - start_time;
+
+  // Calculate using serial implementation
+  start_time = get_time();
+  matrix_serial_mult(a, b, c_serial, m, n, k);
+  s_time = get_time() - start_time;
 
   // Calculating the error
-  float error = calculate_error(c, c_file, m, n);
+  error = calculate_error(c, c_serial, m, n);
 
   // Writing stats to file
-  if (write_stats("omp.csv", m, n, k, 0, t, end_time - start_time, error))
+  if (write_stats("omp.csv", m, n, k, 0, t, error, g_time, p_time, s_time, 0, 0))
     exit(EXIT_FAILURE);
 
 #ifdef DEBUG
-    // Print final matrix (in debug mode only)
-    // matrix_print(c, m, n);
+  // Print final matrix (in debug mode only)
+  matrix_print(c, m, n);
 #endif
 
   // Free memory
@@ -122,6 +99,6 @@ int main(int argc, char **argv) {
   free(b);
   free(b_t);
   free(c);
-  free(c_file);
+  free(c_serial);
   return 0;
 }

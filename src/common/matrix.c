@@ -4,12 +4,11 @@
 #include <sys/time.h>
 
 #include "matrix.h"
-#include "utils.h"
 
-// Helper internal function to write to generic FILE*
-int matrix_write_to_file(FILE *fp, float *matrix, int rows, int cols);
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
 
-float *matrix_init(int rows, int cols, int type) {
+float *matrix_init(int rows, int cols, enum gen_type_t type, int seed_offset) {
+  srand(123456789 + seed_offset);
   // Allocate memory needed
   float *matrix = malloc(sizeof(*matrix) * rows * cols);
   if (matrix == NULL) {
@@ -18,64 +17,17 @@ float *matrix_init(int rows, int cols, int type) {
   }
   // Set elements value (index or random, based on type)
   for (int i = 0; i < rows * cols; i++)
-    matrix[i] = type ? i : (float)rand() / RAND_MAX;
+    matrix[i] = type == INDEX ? i : (float)rand() / RAND_MAX;
   return matrix;
 }
 
-int matrix_write_bin_to_file(char *folder, char *name, float *matrix, int rows, int cols) {
-  // Create output file path
-  char *filename = create_file_path(folder, name);
-  if (filename == NULL)
-    return -1;
-  // Open output file
-  FILE *fp = fopen(filename, "wb");
-  if (fp == NULL) {
-    perror("Error writing to file (binary)");
-    return -1;
-  }
-  // Write as a blob of bytes
-  fwrite(matrix, sizeof(*matrix), rows * cols, fp);
-  // Close file
-  fclose(fp);
-  // Free memory used by the function
-  free(filename);
-  return 0;
-}
-
-int matrix_write_txt_to_file(char *folder, char *name, float *matrix, int rows, int cols) {
-  // Create output file path
-  char *filename = create_file_path(folder, name);
-  if (filename == NULL)
-    return -1;
-  // Open output file
-  FILE *fp = fopen(filename, "w+");
-  if (fp == NULL) {
-    perror("Error writing to file (text)");
-    return -1;
-  }
-  // Write to file
-  matrix_write_to_file(fp, matrix, rows, cols);
-  // Close file
-  fclose(fp);
-  // Free memory used by the function
-  free(filename);
-  return 0;
-}
-
-void matrix_print(float *matrix, int rows, int cols) { matrix_write_to_file(stdout, matrix, rows, cols); }
-
-int matrix_write_to_file(FILE *fp, float *matrix, int rows, int cols) {
+void matrix_print(float *matrix, int rows, int cols) {
   for (int i = 0; i < rows; i++) {
-    for (int j = 0; j < cols; j++) {
-      fprintf(fp, "%f", matrix[i * cols + j]);
-      if (j != cols - 1)
-        fprintf(fp, ", ");
-    }
-    if (i != rows - 1)
-      fprintf(fp, "\n");
+    for (int j = 0; j < cols; j++)
+      // printf("%.3f ", matrix[i * cols + j]);
+      printf("%d ", (int)matrix[i * cols + j]);
+    printf("\n");
   }
-  fprintf(fp, "\n");
-  return 0;
 }
 
 void matrix_serial_mult(float *a, float *b, float *c, int m, int n, int k) {
@@ -92,25 +44,30 @@ void matrix_transpose(float *source, float *transposed, int rows, int cols) {
   int i, j;
 #pragma omp parallel for private(i, j) shared(source, transposed)
   for (int j = 0; j < cols; j++)
-#pragma omp simd if (rows % 8 == 0)
+#pragma omp simd
     for (int i = 0; i < rows; i++)
       transposed[j * rows + i] = source[i * cols + j];
 }
 
-void matrix_parallel_mult(float *a, float *b, float *c, int m, int n, int k, int row_offset, int col_offset) {
-  int i, j, l;
-  // Using collapse(2) instead of 3 to optimize write access
-  // (with collapse 3, the tmp variable cannot be used)
-#pragma omp parallel for private(i, j, l) shared(a, b, c) collapse(2)
-  // Parallel Computation
-  for (i = 0; i < m; i++) {
-    for (j = 0; j < n; j++) {
-      float tmp = 0.0;
+void matrix_parallel_mult(float *restrict a, float *restrict b, float *restrict c, int sub_m, int sub_n, int k, int n,
+                          int row_offset, int col_offset) {
+  int i, j, l, ii, jj, ll;
+#pragma omp parallel for private(i, j, l) collapse(3)
+  for (int i = 0; i < sub_m; i += 16) {
+    for (int j = 0; j < sub_n; j += 16) {
+      for (int l = 0; l < k; l += 16) {
+#pragma omp parallel for private(ii, jj, ll) shared(a, b, c) collapse(2)
+        // Block multiplication
+        for (int ii = i; ii < MIN(i + 16, sub_m); ++ii) {
+          for (int jj = j; jj < MIN(j + 16, sub_n); ++jj) {
+            float sum = 0;
 #pragma omp simd
-      for (l = 0; l < k; l++) {
-        tmp += a[i * k + l] * b[j * k + l];
+            for (int ll = l; ll < MIN(l + 16, k); ll++)
+              sum += a[ii * k + ll] * b[jj * k + ll];
+            c[(ii + row_offset) * n + (jj + col_offset)] += sum;
+          }
+        }
       }
-      c[i * (n + row_offset) + j + col_offset] += tmp;
     }
   }
 }
