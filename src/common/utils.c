@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <unistd.h>
 
 #include "utils.h"
@@ -46,22 +47,28 @@ float calculate_error(float *c, float *c_serial, int m, int n) {
   return norm_diff / norm_c;
 }
 
-int write_stats(char *name, int m, int n, int k, int p, int t, double error, double generation_time,
-                double parallel_time, double serial_time, double first_comm_time, double last_comm_time) {
-  // Creating folder; not checking errors as it can already exists
-  mkdir("output", 0777);
-  // Calculating filepath size; + 8 is for `output`, `/` and `\0`
-  int path_size = strlen(name) + 8;
+char *concat_path(char *path, char *name) {
+  // Calculating filepath size; + 2 is for `/` and `\0`
+  int path_size = strlen(path) + strlen(name) + 2;
   // Allocate memory for filename
-  char *path = malloc(sizeof(*path) * path_size);
-  if (path == NULL) {
+  char *new_path = malloc(sizeof(*new_path) * path_size);
+  if (new_path == NULL) {
     perror("Error allocating memory for filename");
-    return -1;
+    return NULL;
   }
   // Write filename path
-  sprintf(path, "output/%s", name);
+  sprintf(new_path, "%s/%s", path, name);
   // NULL-terminate the string
-  path[path_size - 1] = '\0';
+  new_path[path_size - 1] = '\0';
+  return new_path;
+}
+
+FILE *open_stats_file(char *name) {
+  // Creating folder; not checking errors as it can already exists
+  mkdir("output", 0777);
+  char *path = concat_path("output", name);
+  if (path == NULL)
+    return NULL;
 
   FILE *fp;
   // Checking if the file already exists
@@ -71,22 +78,26 @@ int write_stats(char *name, int m, int n, int k, int p, int t, double error, dou
     fp = fopen(path, "w+");
     if (fp == NULL) {
       perror("Error creating output file");
-      return -1;
+      return NULL;
     }
     // Write header
-    fprintf(fp, "m,n,k,p,t,error,g_t,p_t,s_t,comm_1_t,comm_2_t\n");
+    fprintf(fp, "m,n,k,p,t,g_t,p_t,comm_1_t,comm_2_t,s_t,error\n");
   } else {
     // File exists; opening
     fp = fopen(path, "a");
     if (fp == NULL) {
       perror("Error opening output file");
-      return -1;
+      return NULL;
     }
   }
-  // Write stats
-  fprintf(fp, "%d,%d,%d,%d,%d,%f,", m, n, k, p, t, error);
-  fprintf(fp, "%f,%f,%f,%f,%f\n", generation_time, parallel_time, serial_time, first_comm_time, last_comm_time);
-  fclose(fp);
   free(path);
-  return 0;
+  return fp;
+}
+
+double get_time_syscall() {
+  // Get time with a system-call
+  struct timeval tv;
+  gettimeofday(&tv, NULL);
+  // Convert to the same format used by omp_get_wtime and MPI_Wtime
+  return tv.tv_sec + tv.tv_usec / 1000000.0;
 }

@@ -11,29 +11,20 @@
 #include "../common/utils.h"
 
 // Helper function to calculate the time using OpenMP or gettimeofday
-// inlined as most of the time is just a single function call
-double get_time() {
 #ifdef _OPENMP
-  return omp_get_wtime(); // Get time from OpenMP
+#define get_time() omp_get_wtime()
 #else
-  // Get time with a system-call when OpenMP is not being used
-  struct timeval tv;
-  gettimeofday(&tv, NULL);
-  // Convert to the same format used by omp_get_wtime
-  return tv.tv_sec + tv.tv_usec / 1000000.0;
+#define get_time() get_time_syscall()
 #endif
-}
 
 int main(int argc, char **argv) {
   // Variable definition
-  int m, n, k, t;                    // From CLI, matrices size and number of threads
-  double start_time = 0.0;           // Start time of checkpoint
-  double g_time = 0.0;               // Delta time for generation
-  double p_time = 0.0;               // Delta time for parallel computation
-  double s_time = 0.0;               // Delta time for serial computation
-  double error = 0.0;                // Difference between serial and parallel computation
-  float *a, *b, *b_t, *c, *c_serial; // Matrices
-  enum gen_type_t type = RANDOM;     // Generation type
+  int m, n, k, t;                            // From CLI, matrices size and number of threads
+  double start_time, g_time, p_time, s_time; // Start and delta times for generation, parallel and serial computation
+  double error;                              // Difference between serial and parallel computation
+  float *a, *b, *b_t, *c, *c_serial;         // Matrices
+  enum gen_type_t type = RANDOM;             // Generation type
+  FILE *stats_fp;                            // Stats file
 
   // Parse arguments from command line
   if (argc != 5) {
@@ -57,12 +48,12 @@ int main(int argc, char **argv) {
 #endif
 
   // Allocating matrices
-  a = matrix_init(m, k, type, 0);
-  b = matrix_init(k, n, type, 1);
+  a = matrix_init(m, k, type, SEED);
+  b = matrix_init(k, n, type, SEED + 1);
   b_t = malloc(sizeof(*b_t) * n * k);
-  c = matrix_init(m, n, type, 2);        // Initial C matrix
-  c_serial = matrix_init(m, n, type, 2); // Initial C matrix, used for serial multiplication
-  if (a == NULL || b == NULL || b_t == NULL || c == NULL) {
+  c = matrix_init(m, n, ZERO, 0);        // Initial C matrix
+  c_serial = matrix_init(m, n, ZERO, 0); // Initial C matrix
+  if (a == NULL || b == NULL || b_t == NULL || c == NULL || c_serial) {
     perror("Error creating matrices");
     return -1;
   }
@@ -86,19 +77,25 @@ int main(int argc, char **argv) {
   error = calculate_error(c, c_serial, m, n);
 
   // Writing stats to file
-  if (write_stats("omp.csv", m, n, k, 0, t, error, g_time, p_time, s_time, 0, 0))
-    exit(EXIT_FAILURE);
+
+  stats_fp = open_stats_file("omp.csv");
+  if (stats_fp == NULL) {
+    perror("Error opening stats file");
+    return EXIT_FAILURE;
+  }
+  fprintf(stats_fp, "%d,%d,%d,0,%d,0,%f,0,0,%f,%f\n", m, n, k, t, p_time, s_time, error);
 
 #ifdef DEBUG
   // Print final matrix (in debug mode only)
   matrix_print(c, m, n);
 #endif
 
-  // Free memory
+  // Cleanup
   free(a);
   free(b);
   free(b_t);
   free(c);
   free(c_serial);
+  fclose(stats_fp);
   return 0;
 }

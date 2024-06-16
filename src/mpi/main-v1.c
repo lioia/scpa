@@ -14,15 +14,10 @@
 // NOTE: Block Distribution on C
 // root process generates the entire matrices and distribute the data
 // every process allocates the entire C matrix
-// TODO: implement new version:
-// - root process generates seeds and distributes
-// - every process generates its data
-// - every process allocates just the local C matrix
-// - Gather on root process
 
 int main(int argc, char **argv) {
   // Variable Declaration
-  int m = 0, n = 0, k = 0;                        // Matrix dimension (from arguments)
+  int m, n, k;                                    // Matrix dimension (from arguments)
   int p, t, rank;                                 // Number of processes, threads and this process rank
   float *a, *b, *c, *c_serial;                    // Matrices
   float *local_a, *local_b, *local_c;             // Local Matrices
@@ -34,14 +29,11 @@ int main(int argc, char **argv) {
   MPI_Datatype col_type, col_type_resized;        // Column Datatype
   int *a_counts, *a_displs, *b_counts, *b_displs; // Scatterv parameters
   void *sendbuf, *recvbuf;                        // Scatterv and Reduce parameter
-  double start_time = 0.0;                        // Start time of checkpoint
-  double first_comm_time = 0.0;                   // Delta time for first communication
-  double second_comm_time = 0.0;                  // Delta time for second communication
-  double g_time = 0.0;                            // Delta time for generation
-  double p_time = 0.0;                            // Delta time for parallel computation
-  double s_time = 0.0;                            // Delta time for serial computation
-  double error = 0.0;                             // Difference between serial and parallel computation
-  enum gen_type_t gen_type = RANDOM;              // Generation type
+  double start_time, g_time, p_time, s_time;      // Times for start, generation, parallel and serial computation
+  double first_comm_time, second_comm_time;       // Time for first and second communication
+  float error;                                    // Difference between serial and parallel computation
+  enum gen_type_t gen_type;                       // Generation type
+  FILE *stats_fp;                                 // Stats file
 
 // Based on the version being used, a different number of arguments is required
 // In the OpenMP version the number of threads must be specified as an argument
@@ -55,6 +47,7 @@ int main(int argc, char **argv) {
     exit(EXIT_FAILURE);
   }
   // Variable Initialization
+
   // Parsing arguments
   m = parse_int_arg(argv[1]);
   n = parse_int_arg(argv[2]);
@@ -104,49 +97,35 @@ int main(int argc, char **argv) {
   MPI_Type_create_resized(col_type, 0, 1 * sizeof(*b), &col_type_resized);
   MPI_Type_commit(&col_type_resized);
 
-#ifdef DEBUG
+#ifndef DEBUG
+  gen_type = RANDOM;
+#else
   gen_type = INDEX;
 #endif
-  // Allocate local matrices
+  // Matrix allocation
   if (rank == 0) {
     // Rank 0 creates the matrices
-    a = matrix_init(m, k, gen_type, 0);
-    b = matrix_init(k, n, gen_type, 1);
-    // c = matrix_init(m, n, gen_type, 2);
-    c = malloc(sizeof(*c) * m * n);
+    a = matrix_init(m, k, gen_type, SEED + 0);
+    b = matrix_init(k, n, gen_type, SEED + 1);
+    c = matrix_init(m, n, ZERO, 0);
     if (a == NULL || b == NULL || c == NULL) {
       perror("Error creating matrices");
-      MPI_Abort(topology_comm, -1);
+      MPI_Abort(topology_comm, EXIT_FAILURE);
     }
     c_serial = malloc(sizeof(*c_serial) * m * n);
-    memset(c, 0, sizeof(*c) * m * n);
-    memset(c_serial, 0, sizeof(*c_serial) * m * n);
   }
 
-  // Every other rank just allocates the local matrices
-  // aligned_alloc: memory aligned allocation to improve compiler vectorization
-  // this is applied only if it's possible, otherwise use classic malloc
-  // TODO: move to another function
-  if ((n_rows * k) % 32 == 0)
-    local_a = aligned_alloc(32, sizeof(*local_a) * n_rows * k);
-  else
-    local_a = malloc(sizeof(*local_a) * n_rows * k);
-  if ((n_cols * k) % 32 == 0)
-    local_b = aligned_alloc(32, sizeof(*local_b) * n_cols * k);
-  else
-    local_b = malloc(sizeof(*local_b) * n_cols * k);
-  if ((m * n) % 32 == 0)
-    local_c = aligned_alloc(32, sizeof(*local_c) * m * n);
-  else
-    local_c = malloc(sizeof(*local_c) * m * n);
-
+  // Every process allocates the local matrices
+  local_a = matrix_aligned_alloc(n_rows, k);
+  local_b = matrix_aligned_alloc(k, n_cols);
+  local_c = matrix_init(m, n, ZERO, 0);
   if (local_a == NULL || local_b == NULL || local_c == NULL) {
     perror("Error allocating local matrices");
-    MPI_Abort(topology_comm, -1);
+    MPI_Abort(topology_comm, EXIT_FAILURE);
   }
-  memset(local_c, 0, sizeof(*local_c) * m * n);
 
-  g_time = MPI_Wtime() - start_time;
+  MPI_Barrier(topology_comm);
+  g_time = MPI_Wtime() - start_time; // Generation time
 
   start_time = MPI_Wtime();
 
@@ -157,21 +136,21 @@ int main(int argc, char **argv) {
   b_displs = malloc(sizeof(*b_displs) * p);
   if (a_counts == NULL || a_displs == NULL || b_counts == NULL || b_displs == NULL) {
     perror("Error allocating parameters for Scatterv");
-    MPI_Abort(topology_comm, -1);
+    MPI_Abort(topology_comm, EXIT_FAILURE);
   }
 
   for (int i = 0; i < p; i++) {
     // Calculating block distribution of every process
-    int i_coords[2];
-    int i_start_rows, i_end_rows;
-    int i_start_cols, i_end_cols;
+    int i_coords[2];              // Coordinate for process i
+    int i_start_rows, i_end_rows; // Row distribution for process i
+    int i_start_cols, i_end_cols; // Column distribution for process i
     MPI_Cart_coords(topology_comm, i, 2, i_coords);
     calculate_start_end(m, dims[0], i_coords[0], &i_start_rows, &i_end_rows);
     calculate_start_end(n, dims[1], i_coords[1], &i_start_cols, &i_end_cols);
-    a_counts[i] = i_end_rows - i_start_rows;
-    a_displs[i] = i_start_rows;
-    b_counts[i] = i_end_cols - i_start_cols;
-    b_displs[i] = i_start_cols;
+    a_counts[i] = i_end_rows - i_start_rows; // Rows to send
+    a_displs[i] = i_start_rows;              // Row offset
+    b_counts[i] = i_end_cols - i_start_cols; // Columns to send
+    b_displs[i] = i_start_cols;              // Column offset
   }
 
   // Scatter Matrix A and B
@@ -180,11 +159,13 @@ int main(int argc, char **argv) {
   sendbuf = rank == 0 ? b : NULL;
   MPI_Scatterv(sendbuf, b_counts, b_displs, col_type_resized, local_b, n_cols * k, MPI_FLOAT, 0, topology_comm);
 
-  first_comm_time = MPI_Wtime() - start_time;
+  MPI_Barrier(topology_comm);
+  first_comm_time = MPI_Wtime() - start_time; // Matrices communication time
 
   start_time = MPI_Wtime();
 
-  // If there is only one process, Scatterv becomes a no-operation; so matrix B has to be manually transposed
+  // If there is only one process, Scatterv becomes a no-operation
+  // Matrix B has to be manually transposed
   if (p == 0)
     matrix_transpose(b, local_b, k, n_cols);
 
@@ -192,43 +173,61 @@ int main(int argc, char **argv) {
 
   matrix_parallel_mult(local_a, local_b, local_c, n_rows, n_cols, k, n, start_rows, start_cols);
 
-  MPI_Barrier(topology_comm); // Every process has terminated the execution of the parallel code
-  p_time = MPI_Wtime() - start_time;
+  MPI_Barrier(topology_comm);        // Every process has terminated the execution of the parallel code
+  p_time = MPI_Wtime() - start_time; // Parallel computation
 
   start_time = MPI_Wtime();
 
   // Reduce to root process 0
   recvbuf = rank == 0 ? c : NULL;
   MPI_Reduce(local_c, recvbuf, m * n, MPI_FLOAT, MPI_SUM, 0, topology_comm);
-  second_comm_time = MPI_Wtime();
 
-  if (rank == 0) {
-    // Calculate using serial implementation
-    start_time = MPI_Wtime();
-    matrix_serial_mult(a, b, c_serial, m, n, k);
-    s_time = MPI_Wtime() - start_time;
+  MPI_Barrier(topology_comm);
+  second_comm_time = MPI_Wtime() - start_time; // Final matrix communication time
 
-    // Calculating the error
-    // error = calculate_error(c, c_serial, m, n);
-    error = calculate_error(c, c_serial, m, n);
+  // Cleanup MPI environment
+  MPI_Type_free(&row_type_resized);
+  MPI_Type_free(&col_type_resized);
+  MPI_Comm_free(&topology_comm);
+  MPI_Comm_free(&temp_comm);
+  MPI_Finalize();
+
+  // Program has effectively finished
+  // What follows is additional tasks for the serial check and stats writing
+  if (rank != 0) // Non-root processes closes
+    goto close;
+
+  // Calculate using serial implementation
+  start_time = get_time_syscall();
+  matrix_serial_mult(a, b, c_serial, m, n, k);
+  s_time = get_time_syscall() - start_time; // Serial computation
+
+  // Calculating the error
+  error = calculate_error(c, c_serial, m, n);
 
 #ifdef _OPENMP
-    char *output_name = "mpi-omp.csv";
+  char *output_name = "mpi-omp.csv";
 #else
-    char *output_name = "mpi.csv";
+  char *output_name = "mpi.csv";
 #endif
 
-    // Writing stats to file
-    if (write_stats(output_name, m, n, k, p, t, error, g_time, p_time, s_time, first_comm_time, second_comm_time))
-      exit(EXIT_FAILURE);
+  // Writing stats to file
+  stats_fp = open_stats_file(output_name);
+  if (stats_fp == NULL) {
+    perror("Error opening stats file");
+    return EXIT_FAILURE;
+  }
+  fprintf(stats_fp, "%d,%d,%d,%d,%d,%f,%f,%f,%f,%f,%f\n", m, n, k, p, t, g_time, p_time, first_comm_time,
+          second_comm_time, s_time, error);
 
 #ifdef DEBUG
-    // Print final matrix (in debug mode only)
-    matrix_print(c, m, n);
+  // Print final matrix (in debug mode only)
+  matrix_print(c, m, n);
 #endif
-  }
+  fclose(stats_fp);
 
-  // Free
+close:
+  // Cleanup
   if (rank == 0) {
     free(a);
     free(b);
@@ -242,10 +241,5 @@ int main(int argc, char **argv) {
   free(a_displs);
   free(b_counts);
   free(b_displs);
-  MPI_Type_free(&row_type_resized);
-  MPI_Type_free(&col_type_resized);
-  MPI_Comm_free(&topology_comm);
-  MPI_Comm_free(&temp_comm);
-  MPI_Finalize();
   return 0;
 }

@@ -1,15 +1,14 @@
 #ifndef MATRIX_H
 #define MATRIX_H
 
-enum gen_type_t {
-  INDEX,
-  RANDOM,
-};
+enum gen_type_t { INDEX, RANDOM, ZERO };
 
 // Matrix helper functions
 
+float *matrix_aligned_alloc(int rows, int cols);
+
 // Create a rows * cols matrix; type determines the values of the element
-float *matrix_init(int rows, int cols, enum gen_type_t type, int seed_offset);
+float *matrix_init(int rows, int cols, enum gen_type_t type, int seed);
 
 // Print matrix to stdout
 void matrix_print(float *matrix, int rows, int cols);
