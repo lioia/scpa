@@ -7,7 +7,8 @@
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
-float *matrix_aligned_alloc(int rows, int cols) {
+float *matrix_init(int rows, int cols, enum gen_type_t type, int seed) {
+  // Allocate matrix
   // aligned_alloc: memory aligned allocation to improve compiler vectorization
   // this is applied only if it's possible, otherwise use classic malloc
   float *matrix;
@@ -15,13 +16,6 @@ float *matrix_aligned_alloc(int rows, int cols) {
     matrix = aligned_alloc(16, sizeof(*matrix) * rows * cols);
   else
     matrix = malloc(sizeof(*matrix) * rows * cols);
-  return matrix;
-}
-
-float *matrix_init(int rows, int cols, enum gen_type_t type, int seed) {
-  srand(seed);
-  // Allocate memory needed
-  float *matrix = matrix_aligned_alloc(rows, cols);
   if (matrix == NULL) {
     perror("Error allocating matrix");
     return NULL;
@@ -31,6 +25,7 @@ float *matrix_init(int rows, int cols, enum gen_type_t type, int seed) {
     return matrix;
   }
 
+  srand(seed);
   // Set elements value (index or random, based on type)
   for (int i = 0; i < rows * cols; i++)
     matrix[i] = type == INDEX ? i : (float)rand() / RAND_MAX;

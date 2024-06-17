@@ -118,8 +118,8 @@ int main(int argc, char **argv) {
   }
 
   // Every process allocates the local matrices
-  local_a = matrix_aligned_alloc(n_rows, k);
-  local_b = matrix_aligned_alloc(k, n_cols);
+  local_a = matrix_init(n_rows, k, ZERO, 0);
+  local_b = matrix_init(k, n_cols, ZERO, 0);
   local_c = matrix_init(m, n, ZERO, 0);
   if (local_a == NULL || local_b == NULL || local_c == NULL) {
     perror("Error allocating local matrices");
