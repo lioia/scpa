@@ -109,9 +109,8 @@ int main(int argc, char **argv) {
     // Rank 0 creates the matrices
     a = matrix_init(m, k, gen_type, SEED + 0);
     b = matrix_init(k, n, gen_type, SEED + 1);
-    c = matrix_init(m, n, ZERO, 0);
     c_serial = matrix_init(m, n, ZERO, 0);
-    if (a == NULL || b == NULL || c == NULL || c_serial == NULL) {
+    if (a == NULL || b == NULL || c_serial == NULL) {
       perror("Error creating matrices");
       MPI_Abort(topology_comm, EXIT_FAILURE);
     }
@@ -121,7 +120,8 @@ int main(int argc, char **argv) {
   local_a = matrix_init(n_rows, k, ZERO, 0);
   local_b = matrix_init(k, n_cols, ZERO, 0);
   local_c = matrix_init(m, n, ZERO, 0);
-  if (local_a == NULL || local_b == NULL || local_c == NULL) {
+  c = matrix_init(m, n, ZERO, 0);
+  if (local_a == NULL || local_b == NULL || local_c == NULL || c == NULL) {
     perror("Error allocating local matrices");
     MPI_Abort(topology_comm, EXIT_FAILURE);
   }
@@ -208,12 +208,12 @@ close:
   if (rank == 0) {
     free(a);
     free(b);
-    free(c);
     free(c_serial);
   }
   free(local_a);
   free(local_b);
   free(local_c);
+  free(c);
   free(a_counts);
   free(a_displs);
   free(b_counts);
