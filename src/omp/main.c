@@ -23,7 +23,7 @@ int main(int argc, char **argv) {
   double start_time, g_time, p_time, s_time; // Start and delta times for generation, parallel and serial computation
   double error;                              // Difference between serial and parallel computation
   float *a, *b, *b_t, *c, *c_serial;         // Matrices
-  enum gen_type_t type = RANDOM;             // Generation type
+  enum gen_type_t type;                      // Generation type
   FILE *stats_fp;                            // Stats file
 
   // Parse arguments from command line
@@ -43,17 +43,19 @@ int main(int argc, char **argv) {
 #endif
   start_time = get_time();
 
-#ifdef DEBUG
+#ifndef DEBUG
+  type = RANDOM;
+#else
   type = INDEX;
 #endif
 
   // Allocating matrices
   a = matrix_init(m, k, type, SEED);
   b = matrix_init(k, n, type, SEED + 1);
-  b_t = malloc(sizeof(*b_t) * n * k);
+  b_t = matrix_init(k, n, ZERO, 0);
   c = matrix_init(m, n, ZERO, 0);        // Initial C matrix
-  c_serial = matrix_init(m, n, ZERO, 0); // Initial C matrix
-  if (a == NULL || b == NULL || b_t == NULL || c == NULL || c_serial) {
+  c_serial = matrix_init(m, n, ZERO, 0); // Serial C matrix
+  if (a == NULL || b == NULL || b_t == NULL || c == NULL || c_serial == NULL) {
     perror("Error creating matrices");
     return -1;
   }
