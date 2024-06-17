@@ -16,31 +16,31 @@ fi
 square_size_vals=(32 64 128 256 512 1024 2500 5000 10000)
 m_n_vals=(2500 5000 10000)
 k_vals=(32 64 128 156)
-p_vals=(2 4 8 16 24 32)
+p_vals=(2 4 8 12 16 20)
 
-num_iterations=20
+num_iterations=16
 
-# Syntax: mpi_run <m> <n> <k>
+# Syntax: mpi_run <m> <n> <k> <version=1,2>
 mpi_run() {
     for p in "${p_vals[@]}"; do
-        echo -e "\tNumber of Processes: $p (m: ${1}, n: ${2}, k: ${3})"
-        mpirun -n $p ./build/bin/scpa-mpi $1 $2 $3
+        echo -e "\tNumber of Processes (version $4): $p (m: ${1}, n: ${2}, k: ${3})"
+        mpirun -n $p ./build/bin/scpa-mpi-$4 $1 $2 $3
     done
 }
 
-# Syntax: mpi_omp_run <m> <n> <k>
+# Syntax: mpi_omp_run <m> <n> <k> <version=1,2>
 mpi_omp_run() {
     p=2
     for ((t = 4; t <= 16; t += 4)); do
         x=$((p * t))
-        echo -e "\tNumber of Processes: $p; Number of Threads: $t (m: ${1}, n: ${2}, k: ${3}; x = ${x})"
-        mpirun -n $p ./build/bin/scpa-mpi-omp $1 $2 $3 $t
+        echo -e "\tNumber of Processes (version $4): $p; Number of Threads: $t (m: ${1}, n: ${2}, k: ${3}; x = ${x})"
+        mpirun -n $p ./build/bin/scpa-mpi-omp-$4 $1 $2 $3 $t
     done
     p=4
     for ((t = 4; t <= 8; t += 2)); do
         x=$((p * t))
         echo -e "\tNumber of Processes: $p; Number of Threads: $t (m: ${1}, n: ${2}, k: ${3}; x = ${x})"
-        mpirun -n $p ./build/bin/scpa-mpi-omp $1 $2 $3 $t
+        mpirun -n $p ./build/bin/scpa-mpi-omp-$version $1 $2 $3 $t
     done
 }
 
@@ -59,9 +59,11 @@ run() {
         return
     fi
     if [ $1 == "mpi" ]; then
-        mpi_run $2 $3 $4
+        mpi_run $2 $3 $4 1
+        mpi_run $2 $3 $4 2
     elif [ $1 == "mpi-omp" ]; then
-        mpi_omp_run $2 $3 $4
+        mpi_run $2 $3 $4 1
+        mpi_run $2 $3 $4 2
     elif [ $1 == "omp" ]; then
         omp_run $2 $3 $4
     fi

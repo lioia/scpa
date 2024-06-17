@@ -21,14 +21,14 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 # Add MPI executable
-add_executable(scpa-mpi src/mpi/main-v1.c src/common/utils.c
-                        src/common/matrix.c src/mpi/utils.c)
+add_executable(scpa-mpi-v1 src/mpi/main-v1.c src/common/utils.c
+                           src/common/matrix.c src/mpi/utils.c)
 
 add_executable(scpa-mpi-v2 src/mpi/main-v2.c src/common/utils.c
                            src/common/matrix.c src/mpi/utils.c)
 
 # Link math and MPI to MPI executable
-target_link_libraries(scpa-mpi PUBLIC MPI::MPI_C m)
+target_link_libraries(scpa-mpi-v1 PUBLIC MPI::MPI_C m)
 target_link_libraries(scpa-mpi-v2 PUBLIC MPI::MPI_C m)
 
 # Add OpenMP executable
