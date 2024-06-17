@@ -29,11 +29,10 @@ int main(int argc, char **argv) {
   MPI_Datatype col_type, col_type_resized;        // Column Datatype
   int *a_counts, *a_displs, *b_counts, *b_displs; // Scatterv parameters
   void *sendbuf, *recvbuf;                        // Scatterv and Reduce parameter
-  double start_time, g_time, p_time, s_time;      // Times for start, generation, parallel and serial computation
-  double first_comm_time, second_comm_time;       // Time for first and second communication
+  double start_time;                              // Start timer
   float error;                                    // Difference between serial and parallel computation
   enum gen_type_t gen_type;                       // Generation type
-  FILE *stats_fp;                                 // Stats file
+  stats_t stats;                                  // Stats
 
 // Based on the version being used, a different number of arguments is required
 // In the OpenMP version the number of threads must be specified as an argument
@@ -52,6 +51,7 @@ int main(int argc, char **argv) {
   m = parse_int_arg(argv[1]);
   n = parse_int_arg(argv[2]);
   k = parse_int_arg(argv[3]);
+  memset(&stats, 0, sizeof(stats));
 
 #ifdef _OPENMP
   t = parse_int_arg(argv[4]);
@@ -60,6 +60,7 @@ int main(int argc, char **argv) {
 #else
   t = 0;
 #endif
+  stats.threads = t;
 
   // MPI Initialization
   MPI_Init(&argc, &argv);
@@ -68,6 +69,7 @@ int main(int argc, char **argv) {
   // Getting basics information; using a temp communicator even though a new comm will be created by the topology
   MPI_Comm_rank(temp_comm, &rank);
   MPI_Comm_size(temp_comm, &p);
+  stats.processes = p;
 
 #ifdef _OPENMP
   if (rank == 0)
@@ -125,7 +127,7 @@ int main(int argc, char **argv) {
   }
 
   MPI_Barrier(topology_comm);
-  g_time = MPI_Wtime() - start_time; // Generation time
+  stats.generation_time = MPI_Wtime() - start_time; // Generation time
 
   start_time = MPI_Wtime();
 
@@ -160,7 +162,7 @@ int main(int argc, char **argv) {
   MPI_Scatterv(sendbuf, b_counts, b_displs, col_type_resized, local_b, n_cols * k, MPI_FLOAT, 0, topology_comm);
 
   MPI_Barrier(topology_comm);
-  first_comm_time = MPI_Wtime() - start_time; // Matrices communication time
+  stats.first_communication_time = MPI_Wtime() - start_time; // Matrices communication time
 
   start_time = MPI_Wtime();
 
@@ -173,17 +175,17 @@ int main(int argc, char **argv) {
 
   matrix_parallel_mult(local_a, local_b, local_c, n_rows, n_cols, k, n, start_rows, start_cols);
 
-  MPI_Barrier(topology_comm);        // Every process has terminated the execution of the parallel code
-  p_time = MPI_Wtime() - start_time; // Parallel computation
+  MPI_Barrier(topology_comm);                     // Every process has terminated the execution of the parallel code
+  stats.parallel_time = MPI_Wtime() - start_time; // Parallel computation
 
   start_time = MPI_Wtime();
 
   // Reduce to root process 0
   recvbuf = rank == 0 ? c : NULL;
-  MPI_Reduce(local_c, recvbuf, m * n, MPI_FLOAT, MPI_SUM, 0, topology_comm);
+  MPI_Allreduce(local_c, c, m * n, MPI_FLOAT, MPI_SUM, topology_comm);
 
   MPI_Barrier(topology_comm);
-  second_comm_time = MPI_Wtime() - start_time; // Final matrix communication time
+  stats.second_communication_time = MPI_Wtime() - start_time; // Final matrix communication time
 
   // Cleanup MPI environment
   MPI_Type_free(&row_type_resized);
@@ -194,37 +196,12 @@ int main(int argc, char **argv) {
 
   // Program has effectively finished
   // What follows is additional tasks for the serial check and stats writing
-  if (rank != 0) // Non-root processes closes
+  // These tasks will be done only by root process
+  if (rank != 0)
     goto close;
 
-  // Calculate using serial implementation
-  start_time = get_time_syscall();
-  matrix_serial_mult(a, b, c_serial, m, n, k);
-  s_time = get_time_syscall() - start_time; // Serial computation
-
-  // Calculating the error
-  error = calculate_error(c, c_serial, m, n);
-
-#ifdef _OPENMP
-  char *output_name = "mpi-omp.csv";
-#else
-  char *output_name = "mpi.csv";
-#endif
-
-  // Writing stats to file
-  stats_fp = open_stats_file(output_name);
-  if (stats_fp == NULL) {
-    perror("Error opening stats file");
+  if (root_tasks(a, b, c, c_serial, m, n, k, &stats, MPIv1) != 0)
     return EXIT_FAILURE;
-  }
-  fprintf(stats_fp, "%d,%d,%d,%d,%d,%f,%f,%f,%f,%f,%f\n", m, n, k, p, t, g_time, p_time, first_comm_time,
-          second_comm_time, s_time, error);
-
-#ifdef DEBUG
-  // Print final matrix (in debug mode only)
-  matrix_print(c, m, n);
-#endif
-  fclose(stats_fp);
 
 close:
   // Cleanup

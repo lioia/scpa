@@ -30,11 +30,9 @@ int main(int argc, char **argv) {
   int *recvcounts, *displs;                       // Gatherv Parameters
   int offset, from, copy_to;                      // Temp variable for additional gather computation
   void *sendbuf, *recvbuf;                        // Scatterv and Gatherv parameters
-  double start_time, g_time, p_time, s_time;      // Times for start, generation, parallel and serial computation
-  double first_comm_time, second_comm_time;       // Delta time for first and second communication
-  float error;                                    // Serial and parallel computaiton error
+  double start_time;                              // Start timer
   enum gen_type_t gen_type;                       // Generation type
-  FILE *stats_fp;                                 // Stats file
+  stats_t stats;                                  // Stats
 
 // Based on the version being used, a different number of arguments is required
 // In the OpenMP version the number of threads must be specified as an argument
@@ -53,6 +51,7 @@ int main(int argc, char **argv) {
   m = parse_int_arg(argv[1]);
   n = parse_int_arg(argv[2]);
   k = parse_int_arg(argv[3]);
+  memset(&stats, 0, sizeof(stats));
 
 #ifdef _OPENMP
   t = parse_int_arg(argv[4]);
@@ -61,6 +60,7 @@ int main(int argc, char **argv) {
 #else
   t = 0;
 #endif
+  stats.threads = t;
 
   // MPI Initialization
   MPI_Init(&argc, &argv);
@@ -69,6 +69,7 @@ int main(int argc, char **argv) {
   // Getting basics information; using a temp communicator even though a new comm will be created by the topology
   MPI_Comm_rank(temp_comm, &rank);
   MPI_Comm_size(temp_comm, &p);
+  stats.processes = p;
 
 #ifdef _OPENMP
   if (rank == 0)
@@ -94,7 +95,7 @@ int main(int argc, char **argv) {
     seeds = malloc(sizeof(*seeds) * p * 2);
     if (seeds == NULL || seeds_per_dim == NULL) {
       perror("Error allocating seeds array");
-      MPI_Abort(topology_comm, -1);
+      MPI_Abort(topology_comm, EXIT_FAILURE);
     }
     srand(SEED);
     // Generating real seeds for matrices generation
@@ -111,21 +112,21 @@ int main(int argc, char **argv) {
     }
     // Root processes also allocates the matrix for the final matrix C
     //  c: real C matrix
-    //  temp_c: temporary buffer for initial Gather
+    //  c_temp: temporary buffer for initial Gather
     c = matrix_init(m, n, ZERO, 0);
     c_temp = matrix_init(m, n, ZERO, 0);
     if (c == NULL || c_temp == NULL) {
       perror("Error allocating C matrix");
-      MPI_Abort(topology_comm, -1);
+      MPI_Abort(topology_comm, EXIT_FAILURE);
     }
   }
 
-  // Sending the seeds to the processes (2 ints for each process)
+  // Sending the seeds to the processes (2 ints for each process); saving into local_seeds
   sendbuf = rank == 0 ? seeds : NULL;
   MPI_Scatter(seeds, 2, MPI_INT, local_seeds, 2, MPI_INT, 0, topology_comm);
 
   MPI_Barrier(topology_comm);
-  first_comm_time = MPI_Wtime() - start_time; // First communication time
+  stats.first_communication_time = MPI_Wtime() - start_time; // First communication time
 
   start_time = MPI_Wtime();
 
@@ -143,21 +144,22 @@ int main(int argc, char **argv) {
   local_c = matrix_init(n_rows, n_cols, ZERO, 0); // Local final C matrix
   if (local_a == NULL || local_b == NULL || local_b_t == NULL || local_c == NULL) {
     perror("Error allocating local matrices");
-    MPI_Abort(topology_comm, -1);
+    MPI_Abort(topology_comm, EXIT_FAILURE);
   }
 
   MPI_Barrier(topology_comm);
-  g_time = MPI_Wtime() - start_time; // Generation time
+  stats.generation_time = MPI_Wtime() - start_time; // Generation time
 
   start_time = MPI_Wtime();
 
   // Transposing the B matrix
   matrix_transpose(local_b, local_b_t, k, n_cols);
 
+  // Parallel computation
   matrix_parallel_mult(local_a, local_b_t, local_c, n_rows, n_cols, k, n_cols, 0, 0);
 
   MPI_Barrier(topology_comm);
-  p_time = MPI_Wtime() - start_time; // Parallel computation time
+  stats.parallel_time = MPI_Wtime() - start_time; // Parallel computation time
 
   start_time = MPI_Wtime();
 
@@ -166,9 +168,10 @@ int main(int argc, char **argv) {
   displs = malloc(sizeof(*displs) * p);
   if (recvcounts == NULL || displs == NULL) {
     perror("Error allocating parameters for Gatherv");
-    MPI_Abort(topology_comm, -1);
+    MPI_Abort(topology_comm, EXIT_FAILURE);
   }
 
+  // Populating Gatherv parameters
   offset = 0;
   for (int i = 0; i < p; i++) {
     // Calculating block distribution of every process
@@ -181,11 +184,13 @@ int main(int argc, char **argv) {
 
     // Each process sends only the local matrix C
     recvcounts[i] = (i_end_rows - i_start_rows) * (i_end_cols - i_start_cols);
-    // Root process receives each local matrix as a stream of values (not ordered)
+    // Root process receives each local matrix as a stream of values
+    // Received block is not in the correct order; it will be ordered using another array
     displs[i] = offset;
     offset += recvcounts[i];
   }
 
+  // Gathering results
   recvbuf = rank == 0 ? c_temp : NULL;
   MPI_Gatherv(local_c, n_rows * n_cols, MPI_FLOAT, recvbuf, recvcounts, displs, MPI_FLOAT, 0, topology_comm);
 
@@ -193,6 +198,7 @@ int main(int argc, char **argv) {
   if (rank != 0)
     goto mpi_close;
 
+  // Ordering final C matrix
   for (int i = 0; i < p; i++) {
     // Calculating row and column distributions for each process
     int i_coords[2];
@@ -208,7 +214,7 @@ int main(int argc, char **argv) {
     copy_to = i_start_cols + i_start_rows * n;
     // Copy for each row
     for (int j = 0; j < (i_end_rows - i_start_rows); j++) {
-      // Copy cols of process i from temp_c to c
+      // Copy cols of process i from c_temp to c
       memcpy(c + copy_to, c_temp + from, (i_end_cols - i_start_cols) * sizeof(*c_temp));
       // Update offsets
       from += (i_end_cols - i_start_cols);
@@ -217,8 +223,8 @@ int main(int argc, char **argv) {
   }
 
 mpi_close:
-  MPI_Barrier(topology_comm);
-  second_comm_time = MPI_Wtime(); // Second communication time
+  MPI_Barrier(topology_comm);                    // Waiting for root process to finish ordering
+  stats.second_communication_time = MPI_Wtime(); // Second communication time
 
   // MPI Cleanup
   MPI_Comm_free(&topology_comm);
@@ -227,6 +233,7 @@ mpi_close:
 
   // Program has effectively finished
   // What follows is additional tasks for the serial check and stats writing
+  // These tasks will only be executed by root process
   if (rank != 0)
     goto close;
 
@@ -267,35 +274,8 @@ mpi_close:
     offset = 0;
   }
 
-  start_time = get_time_syscall();
-
-  matrix_serial_mult(a, b, c_temp, m, n, k);
-
-  s_time = get_time_syscall() - start_time; // Serial computation
-
-  // Calculate error
-  error = calculate_error(c, c_temp, m, n);
-
-#ifdef _OPENMP
-  char *output_name = "mpi-v2-omp.csv";
-#else
-  char *output_name = "mpi-v2.csv";
-#endif
-
-  // Writing stats to file
-  stats_fp = open_stats_file(output_name);
-  if (stats_fp == NULL) {
-    perror("Error opening stats file");
-    MPI_Abort(topology_comm, -1);
-  }
-  fprintf(stats_fp, "%d,%d,%d,%d,%d,%f,%f,%f,%f,%f,%f\n", m, n, k, p, t, g_time, p_time, first_comm_time,
-          second_comm_time, s_time, error);
-
-#ifdef DEBUG
-  // Print final matrix (in debug mode only)
-  matrix_print(c, m, n);
-#endif /* ifdef DEBUG */
-  fclose(stats_fp);
+  if (root_tasks(a, b, c, c_temp, m, n, k, &stats, MPIv2) != 0)
+    return EXIT_FAILURE;
 
 close:
   // Cleanup

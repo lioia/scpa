@@ -8,6 +8,7 @@
 #include <sys/time.h>
 #include <unistd.h>
 
+#include "matrix.h"
 #include "utils.h"
 
 // Return parsed int from arg; exits otherwise
@@ -48,57 +49,76 @@ float calculate_error(float *c, float *c_serial, int m, int n) {
   return norm_diff / norm_c;
 }
 
-char *concat_path(char *path, char *name) {
-  // Calculating filepath size; + 2 is for `/` and `\0`
-  int path_size = strlen(path) + strlen(name) + 2;
-  // Allocate memory for filename
-  char *new_path = malloc(sizeof(*new_path) * path_size);
-  if (new_path == NULL) {
-    perror("Error allocating memory for filename");
-    return NULL;
-  }
-  // Write filename path
-  sprintf(new_path, "%s/%s", path, name);
-  // NULL-terminate the string
-  new_path[path_size - 1] = '\0';
-  return new_path;
-}
-
-FILE *open_stats_file(char *name) {
-  // Creating folder; not checking errors as it can already exists
-  mkdir("output", 0777);
-  char *path = concat_path("output", name);
-  if (path == NULL)
-    return NULL;
-
-  FILE *fp;
-  // Checking if the file already exists
-  if (access(path, W_OK)) {
-    // File does not exists (or it cannot be written to);
-    // creating new file with write permissions
-    fp = fopen(path, "w+");
-    if (fp == NULL) {
-      perror("Error creating output file");
-      return NULL;
-    }
-    // Write header
-    fprintf(fp, "m,n,k,p,t,g_t,p_t,comm_1_t,comm_2_t,s_t,error\n");
-  } else {
-    // File exists; opening
-    fp = fopen(path, "a");
-    if (fp == NULL) {
-      perror("Error opening output file");
-      return NULL;
-    }
-  }
-  free(path);
-  return fp;
-}
-
 double get_time_syscall() {
   // Get time with a system-call
   struct timeval tv;
   gettimeofday(&tv, NULL);
   // Convert to the same format used by omp_get_wtime and MPI_Wtime
   return tv.tv_sec + tv.tv_usec / 1000000.0;
+}
+
+int root_tasks(float *a, float *b, float *c, float *c_serial, int m, int n, int k, stats_t *stats, version_t version) {
+  double start_time, serial_time;
+  float error;
+  char *stats_path;
+  FILE *stats_fp;
+
+#ifdef DEBUG
+  matrix_print(c, m, n);
+#endif /* ifdef DEBUG */
+
+  start_time = get_time_syscall();
+  matrix_serial_mult(a, b, c_serial, m, n, k);
+  serial_time = get_time_syscall() - start_time; // Serial computation
+
+  // Calculate the error
+  error = calculate_error(c, c_serial, m, n);
+
+  // Determine stats filename
+  if (version == OMP) {
+    stats_path = "output/omp.csv";
+  } else if (version == MPIv1) {
+#ifdef _OPENMP
+    stats_path = "output/mpi-v1-omp.csv";
+#else
+    stats_path = "output/mpi-v1.csv";
+#endif
+  } else { // MPIv2
+#ifdef _OPENMP
+    stats_path = "output/mpi-v2-omp.csv";
+#else
+    stats_path = "output/mpi-v2.csv";
+#endif
+  }
+
+  // Creating folder; not checking errors as it can already exists
+  mkdir("output", 0777);
+
+  // Checking if the file already exists
+  if (access(stats_path, W_OK)) {
+    // File does not exists (or it cannot be written to);
+    // creating new file with write permissions
+    stats_fp = fopen(stats_path, "w+");
+    if (stats_fp == NULL) {
+      perror("Error creating output file");
+      return -1;
+    }
+    // Write header
+    fprintf(stats_fp, "m,n,k,processes,threads,error,");
+    fprintf(stats_fp, "generation_time,first_communication_time,second_communication_time,parallel_time,serial_time\n");
+  } else {
+    // File exists; opening
+    stats_fp = fopen(stats_path, "a");
+    if (stats_fp == NULL) {
+      perror("Error opening output file");
+      return -1;
+    }
+  }
+
+  fprintf(stats_fp, "%d,%d,%d,%d,%d,%f,", m, n, k, stats->processes, stats->threads, error);
+  fprintf(stats_fp, "%f,%f,%f,%f,%f\n", stats->generation_time, stats->first_communication_time,
+          stats->second_communication_time, stats->parallel_time, serial_time);
+
+  fclose(stats_fp);
+  return 0;
 }
