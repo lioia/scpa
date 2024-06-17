@@ -21,7 +21,7 @@ int main(int argc, char **argv) {
   int m, n, k;                                    // Matrix dimension (from arguments)
   int p, t, rank;                                 // Number of processes, threads and this process rank
   float *local_a, *local_b, *local_b_t, *local_c; // Local Matrices
-  float *a, *b, *temp_c, *c;                      // Global matrices (used by root for gather and serial check)
+  float *a, *b, *c_temp, *c;                      // Global matrices (used by root for gather and serial check)
   int *seeds_per_dim, *seeds, local_seeds[2];     // Seeds to distributes and local seeds received
   MPI_Comm topology_comm, temp_comm;              // Custom communicator
   int dims[2], periods[2], coords[2];             // Topology dimensions and coordinates
@@ -113,8 +113,8 @@ int main(int argc, char **argv) {
     //  c: real C matrix
     //  temp_c: temporary buffer for initial Gather
     c = matrix_init(m, n, ZERO, 0);
-    temp_c = matrix_init(m, n, ZERO, 0);
-    if (c == NULL || temp_c == NULL) {
+    c_temp = matrix_init(m, n, ZERO, 0);
+    if (c == NULL || c_temp == NULL) {
       perror("Error allocating C matrix");
       MPI_Abort(topology_comm, -1);
     }
@@ -186,7 +186,7 @@ int main(int argc, char **argv) {
     offset += recvcounts[i];
   }
 
-  recvbuf = rank == 0 ? temp_c : NULL;
+  recvbuf = rank == 0 ? c_temp : NULL;
   MPI_Gatherv(local_c, n_rows * n_cols, MPI_FLOAT, recvbuf, recvcounts, displs, MPI_FLOAT, 0, topology_comm);
 
   // Root process has to rearrange the C matrix
@@ -209,7 +209,7 @@ int main(int argc, char **argv) {
     // Copy for each row
     for (int j = 0; j < (i_end_rows - i_start_rows); j++) {
       // Copy cols of process i from temp_c to c
-      memcpy(c + copy_to, temp_c + from, (i_end_cols - i_start_cols) * sizeof(*temp_c));
+      memcpy(c + copy_to, c_temp + from, (i_end_cols - i_start_cols) * sizeof(*c_temp));
       // Update offsets
       from += (i_end_cols - i_start_cols);
       copy_to += n;
@@ -233,8 +233,8 @@ mpi_close:
   // Initialize global matrices
   a = matrix_init(m, k, ZERO, 0);
   b = matrix_init(k, n, ZERO, 0);
-  // Resetting temp_c matrix (using as c_serial)
-  memset(temp_c, 0, sizeof(*temp_c) * m * n);
+  // Resetting c_temp matrix (using as c_serial)
+  memset(c_temp, 0, sizeof(*c_temp) * m * n);
   if (a == NULL || b == NULL) {
     perror("Error allocating matrices for serial check");
     return EXIT_FAILURE;
@@ -253,24 +253,28 @@ mpi_close:
   }
 
   // Generating B matrix
+  offset = 0;
   for (int i = 0; i < dims[1]; i++) {
     int i_start_cols, i_end_cols, i_cols;
     calculate_start_end(n, dims[1], i, &i_start_cols, &i_end_cols);
     i_cols = i_end_cols - i_start_cols;
     srand(seeds_per_dim[dims[0] + i]);
-    for (int l = 0; l < k; l++)
-      for (int j = 0; j < i_cols; j++)
-        b[j + i_start_cols + l * n] = gen_type == INDEX ? j : (float)rand() / RAND_MAX;
+    for (int l = 0; l < k; l++) {
+      for (int j = 0; j < i_cols; j++) {
+        b[j + i_start_cols + l * n] = gen_type == INDEX ? offset++ : (float)rand() / RAND_MAX;
+      }
+    }
+    offset = 0;
   }
 
   start_time = get_time_syscall();
 
-  matrix_serial_mult(a, b, temp_c, m, n, k);
+  matrix_serial_mult(a, b, c_temp, m, n, k);
 
   s_time = get_time_syscall() - start_time; // Serial computation
 
   // Calculate error
-  error = calculate_error(c, temp_c, m, n);
+  error = calculate_error(c, c_temp, m, n);
 
 #ifdef _OPENMP
   char *output_name = "mpi-v2-omp.csv";
@@ -290,7 +294,6 @@ mpi_close:
 #ifdef DEBUG
   // Print final matrix (in debug mode only)
   matrix_print(c, m, n);
-  matrix_print(temp_c, m, n);
 #endif /* ifdef DEBUG */
   fclose(stats_fp);
 
@@ -300,7 +303,7 @@ close:
     free(a);
     free(b);
     free(c);
-    free(temp_c);
+    free(c_temp);
     free(seeds);
     free(seeds_per_dim);
   }
