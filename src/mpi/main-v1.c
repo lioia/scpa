@@ -108,11 +108,11 @@ int main(int argc, char **argv) {
     a = matrix_init(m, k, gen_type, SEED + 0);
     b = matrix_init(k, n, gen_type, SEED + 1);
     c = matrix_init(m, n, ZERO, 0);
-    if (a == NULL || b == NULL || c == NULL) {
+    c_serial = matrix_init(m, n, ZERO, 0);
+    if (a == NULL || b == NULL || c == NULL || c_serial == NULL) {
       perror("Error creating matrices");
       MPI_Abort(topology_comm, EXIT_FAILURE);
     }
-    c_serial = malloc(sizeof(*c_serial) * m * n);
   }
 
   // Every process allocates the local matrices

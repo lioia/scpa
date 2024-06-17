@@ -26,7 +26,7 @@ float frobenius_norm(int m, int n, float *matrix) {
   float sum = 0.0;
   for (int i = 0; i < m * n; i++)
     sum += matrix[i] * matrix[i];
-  return sqrt(sum);
+  return (float)sqrt(sum);
 }
 
 float calculate_error(float *c, float *c_serial, int m, int n) {
@@ -44,6 +44,7 @@ float calculate_error(float *c, float *c_serial, int m, int n) {
   float norm_diff = frobenius_norm(m, n, diff);
   float norm_c = frobenius_norm(m, n, c);
 
+  free(diff);
   return norm_diff / norm_c;
 }
 
