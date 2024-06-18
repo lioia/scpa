@@ -206,7 +206,7 @@ int main(int argc, char **argv) {
     perror("Error allocating C serial matrix");
     return EXIT_FAILURE;
   }
-  if (iteration == 0 && root_tasks(a, b, c, c_serial, m, n, k, &stats, MPIv1) != 0)
+  if (root_tasks(a, b, c, c_serial, m, n, k, &stats, MPIv1, iteration) != 0)
     return EXIT_FAILURE;
 
 close:

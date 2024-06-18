@@ -209,7 +209,7 @@ int main(int argc, char **argv) {
     offset = 0;
   }
 
-  if (iteration == 0 && root_tasks(a, b, c, c_serial, m, n, k, &stats, MPIv2) != 0)
+  if (root_tasks(a, b, c, c_serial, m, n, k, &stats, MPIv2, iteration) != 0)
     return EXIT_FAILURE;
 
 close:

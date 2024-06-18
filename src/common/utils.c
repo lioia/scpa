@@ -57,7 +57,8 @@ double get_time_syscall() {
   return tv.tv_sec + tv.tv_usec / 1000000.0;
 }
 
-int root_tasks(float *a, float *b, float *c, float *c_serial, int m, int n, int k, stats_t *stats, version_t version) {
+int root_tasks(float *a, float *b, float *c, float *c_serial, int m, int n, int k, stats_t *stats, version_t version,
+               int iteration) {
   double start_time, serial_time;
   float error;
   char *stats_path;
@@ -67,12 +68,16 @@ int root_tasks(float *a, float *b, float *c, float *c_serial, int m, int n, int 
   // matrix_print(c, m, n);
 #endif /* ifdef DEBUG */
 
-  start_time = get_time_syscall();
-  matrix_serial_mult(a, b, c_serial, m, n, k);
-  serial_time = get_time_syscall() - start_time; // Serial computation
+  start_time = serial_time = 0.0;
+  error = 0.0;
+  if (iteration != 0) {
+    start_time = get_time_syscall();
+    matrix_serial_mult(a, b, c_serial, m, n, k);
+    serial_time = get_time_syscall() - start_time; // Serial computation
 
-  // Calculate the error
-  error = calculate_error(c, c_serial, m, n);
+    // Calculate the error
+    error = calculate_error(c, c_serial, m, n);
+  }
 
   // Determine stats filename
   if (version == OMP) {

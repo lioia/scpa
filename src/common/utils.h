@@ -26,6 +26,7 @@ double get_time_syscall();
 // Tasks to be done after computation has finished:
 // - check with serial implementation
 // - write stats to file
-int root_tasks(float *a, float *b, float *c, float *c_serial, int m, int n, int k, stats_t *stats, version_t version);
+int root_tasks(float *a, float *b, float *c, float *c_serial, int m, int n, int k, stats_t *stats, version_t version,
+               int iteration);
 
 #endif // !UTILS_H

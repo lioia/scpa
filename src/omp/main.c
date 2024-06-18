@@ -72,7 +72,7 @@ int main(int argc, char **argv) {
   matrix_parallel_mult(a, b_t, c, m, n, k, n, 0, 0);
   stats.parallel_time = get_time() - start_time;
 
-  if (iteration == 0 && root_tasks(a, b, c, c_serial, m, n, k, &stats, OMP) != 0)
+  if (root_tasks(a, b, c, c_serial, m, n, k, &stats, OMP, iteration) != 0)
     return EXIT_FAILURE;
 
   // Cleanup
