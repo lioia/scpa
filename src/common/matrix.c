@@ -64,16 +64,15 @@ void matrix_transpose(float *restrict source, float *restrict transposed, int ro
 void matrix_parallel_mult(float *restrict a, float *restrict b, float *restrict c, int sub_m, int sub_n, int k, int n,
                           int row_offset, int col_offset) {
   int i, j, l, ii, jj, ll;
-#pragma omp parallel for private(i, j, l) collapse(3)
+#pragma omp parallel for private(i, j, l, ii, jj, ll) shared(a, b, c) collapse(3)
   for (i = 0; i < sub_m; i += 16) {
     for (j = 0; j < sub_n; j += 16) {
       for (l = 0; l < k; l += 16) {
-#pragma omp parallel for private(ii, jj, ll) shared(a, b, c) collapse(2)
         // Block multiplication
         for (ii = i; ii < MIN(i + 16, sub_m); ++ii) {
           for (jj = j; jj < MIN(j + 16, sub_n); ++jj) {
             float sum = 0;
-#pragma omp simd
+#pragma omp simd reduction(+ : sum)
             for (ll = l; ll < MIN(l + 16, k); ll++)
               sum += a[ii * k + ll] * b[jj * k + ll];
             c[(ii + row_offset) * n + (jj + col_offset)] += sum;
