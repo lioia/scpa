@@ -55,9 +55,9 @@ void matrix_serial_mult(float *a, float *b, float *c, int m, int n, int k) {
 void matrix_transpose(float *restrict source, float *restrict transposed, int rows, int cols) {
   int i, j;
 #pragma omp parallel for private(i, j) shared(source, transposed)
-  for (int j = 0; j < cols; j++)
+  for (j = 0; j < cols; j++)
 #pragma omp simd
-    for (int i = 0; i < rows; i++)
+    for (i = 0; i < rows; i++)
       transposed[j * rows + i] = source[i * cols + j];
 }
 
