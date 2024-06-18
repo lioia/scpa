@@ -23,22 +23,28 @@ There is a helper script to run every matrices for a particular version:
 Parallel version using MPI
 
 ```bash
-mpirun -n <p> ./build/mpi/scpa-mpi-v[1,2] <m> <n> <k>
+mpirun -n <p> ./build/mpi/scpa-mpi-v[1,2] <m> <n> <k> <iteration>
 ```
+
+When `<iteration>` is 0, the serial check will be run
 
 ### OpenMP
 
 Parallel Version using OpenMP
 
 ```bash
-./build/omp/scpa-omp <m> <n> <k> <p>
+./build/omp/scpa-omp <m> <n> <k> <p> <iteration>
 ```
+
+When `<iteration>` is 0, the serial check will be run
 
 ### MPI + OpenMP
 
 ```bash
-mpirun -n <p> ./build/mpi/scpa-mpi-omp-v[1,2] <m> <n> <k> <t>
+mpirun -n <p> ./build/mpi/scpa-mpi-omp-v[1,2] <m> <n> <k> <t> <iteration>
 ```
+
+When `<iteration>` is 0, the serial check will be run
 
 ## Graphs
 

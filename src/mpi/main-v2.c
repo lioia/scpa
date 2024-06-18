@@ -17,11 +17,9 @@
 // - every process generates its data by allocating only the memory required
 // - results are then collected by the root process
 
-// FIXME: error is not 0
-
 int main(int argc, char **argv) {
   // Variable Declaration
-  int m, n, k;                                    // Matrix dimension (from arguments)
+  int m, n, k, iteration;                         // Matrix dimension (from arguments) and number of iteration
   int p, t, rank;                                 // Number of processes, threads and this process rank
   float *local_a, *local_b, *local_b_t, *c;       // Local Matrices
   float *a, *b, *c_serial;                        // Global matrices (used by root for gather and serial check)
@@ -39,11 +37,11 @@ int main(int argc, char **argv) {
 // Based on the version being used, a different number of arguments is required
 // In the OpenMP version the number of threads must be specified as an argument
 #ifdef _OPENMP
-  if (argc != 5) {
-    puts("Usage: mpirun -n <p> ./build/mpi/scpa-mpi-omp <m> <n> <k> <t>");
+  if (argc != 6) {
+    puts("Usage: mpirun -n <p> ./build/mpi/scpa-mpi-omp-v2 <m> <n> <k> <t> <iteration>");
 #else
-  if (argc != 4) {
-    puts("Usage: mpirun -n <p> ./build/mpi/scpa-mpi <m> <n> <k>");
+  if (argc != 5) {
+    puts("Usage: mpirun -n <p> ./build/mpi/scpa-mpi-v2 <m> <n> <k> <iteration>");
 #endif
     exit(EXIT_FAILURE);
   }
@@ -57,10 +55,12 @@ int main(int argc, char **argv) {
 
 #ifdef _OPENMP
   t = parse_int_arg(argv[4]);
+  iteration = parse_int_arg(argv[5]);
   // OpenMP initialization
   omp_set_num_threads(t);
 #else
   t = 0;
+  iteration = parse_int_arg(argv[4]);
 #endif
   stats.threads = t;
 
@@ -209,7 +209,7 @@ int main(int argc, char **argv) {
     offset = 0;
   }
 
-  if (root_tasks(a, b, c, c_serial, m, n, k, &stats, MPIv2) != 0)
+  if (iteration == 0 && root_tasks(a, b, c, c_serial, m, n, k, &stats, MPIv2) != 0)
     return EXIT_FAILURE;
 
 close:

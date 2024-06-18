@@ -19,21 +19,22 @@
 
 int main(int argc, char **argv) {
   // Variable definition
-  int m, n, k, t;                    // From CLI, matrices size and number of threads
+  int m, n, k, t, iteration;         // From CLI, matrices size, number of threads and iteration
   double start_time;                 // Start and delta times for generation and parallel
   float *a, *b, *b_t, *c, *c_serial; // Matrices
   enum gen_type_t type;              // Generation type
   stats_t stats;                     // Stats
 
   // Parse arguments from command line
-  if (argc != 5) {
-    printf("Usage: %s <m> <n> <k> <t>\n", argv[0]);
+  if (argc != 6) {
+    printf("Usage: %s <m> <n> <k> <t> <iteration>\n", argv[0]);
     exit(EXIT_FAILURE);
   }
   m = parse_int_arg(argv[1]);
   n = parse_int_arg(argv[2]);
   k = parse_int_arg(argv[3]);
   t = parse_int_arg(argv[4]);
+  iteration = parse_int_arg(argv[5]);
   memset(&stats, 0, sizeof(stats));
   stats.threads = t;
 
@@ -71,7 +72,7 @@ int main(int argc, char **argv) {
   matrix_parallel_mult(a, b_t, c, m, n, k, n, 0, 0);
   stats.parallel_time = get_time() - start_time;
 
-  if (root_tasks(a, b, c, c_serial, m, n, k, &stats, OMP) != 0)
+  if (iteration == 0 && root_tasks(a, b, c, c_serial, m, n, k, &stats, OMP) != 0)
     return EXIT_FAILURE;
 
   // Cleanup
