@@ -74,7 +74,7 @@ main() {
     echo "Square Matrices"
     for m in "${square_size_vals[@]}"; do
         echo -e "\tRunning (size: ${m})"
-        for ((i = 0; i <= $num_iterations; i++)); do
+        for ((i = 0; i < $num_iterations; i++)); do
             run $1 $m $m $m
         done
     done
@@ -84,7 +84,7 @@ main() {
             for k in "${k_vals[@]}"; do
                 if [[ m -ne n ]] || [[ m -ne k ]]; then 
                     echo -e "\tRunning (m: ${m}, n: ${n}, k: ${k})"
-                    for ((i = 0; i <= $num_iterations; i++)); do
+                    for ((i = 0; i < $num_iterations; i++)); do
                         run $1 $m $n $k
                     done
                 fi
