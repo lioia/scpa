@@ -70,7 +70,7 @@ int root_tasks(float *a, float *b, float *c, float *c_serial, int m, int n, int 
 
   start_time = serial_time = 0.0;
   error = 0.0;
-  if (iteration != 0) {
+  if (iteration == 0) {
     start_time = get_time_syscall();
     matrix_serial_mult(a, b, c_serial, m, n, k);
     serial_time = get_time_syscall() - start_time; // Serial computation
