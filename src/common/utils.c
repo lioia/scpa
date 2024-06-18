@@ -43,10 +43,10 @@ float calculate_error(float *c, float *c_serial, int m, int n) {
 
   // Calculate the Frobenius norms
   float norm_diff = frobenius_norm(m, n, diff);
-  float norm_c = frobenius_norm(m, n, c);
+  float norm_c_serial = frobenius_norm(m, n, c_serial);
 
   free(diff);
-  return norm_diff / norm_c;
+  return norm_diff / norm_c_serial;
 }
 
 double get_time_syscall() {

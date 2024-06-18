@@ -36,7 +36,8 @@ float *matrix_init(int rows, int cols, enum gen_type_t type, int seed) {
 void matrix_print(float *matrix, int rows, int cols) {
   for (int i = 0; i < rows; i++) {
     for (int j = 0; j < cols; j++)
-      printf("%.3f ", matrix[i * cols + j]);
+      // printf("%.3f ", matrix[i * cols + j]);
+      printf("%d ", (int)matrix[i * cols + j]);
     printf("\n");
   }
 }
@@ -64,16 +65,16 @@ void matrix_parallel_mult(float *restrict a, float *restrict b, float *restrict 
                           int row_offset, int col_offset) {
   int i, j, l, ii, jj, ll;
 #pragma omp parallel for private(i, j, l) collapse(3)
-  for (int i = 0; i < sub_m; i += 16) {
-    for (int j = 0; j < sub_n; j += 16) {
-      for (int l = 0; l < k; l += 16) {
+  for (i = 0; i < sub_m; i += 16) {
+    for (j = 0; j < sub_n; j += 16) {
+      for (l = 0; l < k; l += 16) {
 #pragma omp parallel for private(ii, jj, ll) shared(a, b, c) collapse(2)
         // Block multiplication
-        for (int ii = i; ii < MIN(i + 16, sub_m); ++ii) {
-          for (int jj = j; jj < MIN(j + 16, sub_n); ++jj) {
+        for (ii = i; ii < MIN(i + 16, sub_m); ++ii) {
+          for (jj = j; jj < MIN(j + 16, sub_n); ++jj) {
             float sum = 0;
 #pragma omp simd
-            for (int ll = l; ll < MIN(l + 16, k); ll++)
+            for (ll = l; ll < MIN(l + 16, k); ll++)
               sum += a[ii * k + ll] * b[jj * k + ll];
             c[(ii + row_offset) * n + (jj + col_offset)] += sum;
           }

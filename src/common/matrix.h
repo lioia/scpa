@@ -19,6 +19,7 @@ void matrix_transpose(float *source, float *transposed, int rows, int cols);
 
 // Parallel implementation
 // restrict: pointer is not aliased (not used in another context); allows the compiler to do vectorization
+// B matrix has to be transposed (improves cache read hits)
 void matrix_parallel_mult(float *restrict a, float *restrict b, float *restrict c, int m, int sub_n, int k, int n,
                           int row_offset, int col_offset);
 
