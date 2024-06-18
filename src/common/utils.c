@@ -64,7 +64,7 @@ int root_tasks(float *a, float *b, float *c, float *c_serial, int m, int n, int 
   FILE *stats_fp;
 
 #ifdef DEBUG
-  matrix_print(c, m, n);
+  // matrix_print(c, m, n);
 #endif /* ifdef DEBUG */
 
   start_time = get_time_syscall();
@@ -79,13 +79,13 @@ int root_tasks(float *a, float *b, float *c, float *c_serial, int m, int n, int 
     stats_path = "output/omp.csv";
   } else if (version == MPIv1) {
 #ifdef _OPENMP
-    stats_path = "output/mpi-v1-omp.csv";
+    stats_path = "output/mpi-omp-v1.csv";
 #else
     stats_path = "output/mpi-v1.csv";
 #endif
   } else { // MPIv2
 #ifdef _OPENMP
-    stats_path = "output/mpi-v2-omp.csv";
+    stats_path = "output/mpi-omp-v2.csv";
 #else
     stats_path = "output/mpi-v2.csv";
 #endif

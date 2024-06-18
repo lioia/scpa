@@ -2,7 +2,7 @@
 
 # $1: calculation type: mpi or omp or mpi-omp
 
-if ! [ -f ./build/bin/scpa-mpi ] || ! [ -f ./build/bin/scpa-mpi-omp ] || ! [ -f ./build/bin/scpa-omp ]; then
+if ! [ -d build/bin ]; then
     echo "The project was not built. Building now..."
     module load gnu mpich # or module load mpi in local development environment
     cmake -B build && cmake --build build
@@ -24,7 +24,7 @@ num_iterations=16
 mpi_run() {
     for p in "${p_vals[@]}"; do
         echo -e "\tNumber of Processes (version $4): $p (m: ${1}, n: ${2}, k: ${3})"
-        mpirun -n $p ./build/bin/scpa-mpi-$4 $1 $2 $3
+        mpirun -n $p ./build/bin/scpa-mpi-v$4 $1 $2 $3
     done
 }
 
@@ -34,13 +34,13 @@ mpi_omp_run() {
     for ((t = 4; t <= 16; t += 4)); do
         x=$((p * t))
         echo -e "\tNumber of Processes (version $4): $p; Number of Threads: $t (m: ${1}, n: ${2}, k: ${3}; x = ${x})"
-        mpirun -n $p ./build/bin/scpa-mpi-omp-$4 $1 $2 $3 $t
+        mpirun -n $p ./build/bin/scpa-mpi-omp-v$4 $1 $2 $3 $t
     done
     p=4
     for ((t = 4; t <= 8; t += 2)); do
         x=$((p * t))
         echo -e "\tNumber of Processes: $p; Number of Threads: $t (m: ${1}, n: ${2}, k: ${3}; x = ${x})"
-        mpirun -n $p ./build/bin/scpa-mpi-omp-$version $1 $2 $3 $t
+        mpirun -n $p ./build/bin/scpa-mpi-omp-v$4 $1 $2 $3 $t
     done
 }
 

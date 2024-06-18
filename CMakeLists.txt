@@ -42,13 +42,13 @@ if(OpenMP_C_FOUND)
   target_link_libraries(scpa-omp PUBLIC OpenMP::OpenMP_C)
 
   # Add MPI-OpenMP executable
-  add_executable(scpa-mpi-omp src/mpi/main-v1.c src/common/utils.c
-                              src/common/matrix.c src/mpi/utils.c)
+  add_executable(scpa-mpi-omp-v1 src/mpi/main-v1.c src/common/utils.c
+                                 src/common/matrix.c src/mpi/utils.c)
 
   add_executable(scpa-mpi-omp-v2 src/mpi/main-v2.c src/common/utils.c
                                  src/common/matrix.c src/mpi/utils.c)
 
   # Link math, MPI and OpenMP to MPI-OpenMP executable
-  target_link_libraries(scpa-mpi-omp PUBLIC MPI::MPI_C OpenMP::OpenMP_C m)
+  target_link_libraries(scpa-mpi-omp-v1 PUBLIC MPI::MPI_C OpenMP::OpenMP_C m)
   target_link_libraries(scpa-mpi-omp-v2 PUBLIC MPI::MPI_C OpenMP::OpenMP_C m)
 endif()
