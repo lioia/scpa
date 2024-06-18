@@ -16,9 +16,9 @@ fi
 square_size_vals=(32 64 128 256 512 1024 2500 5000 10000)
 m_n_vals=(2500 5000 10000)
 k_vals=(32 64 128 156)
-p_vals=(2 4 8 12 16 20)
+p_vals=(4 8 12 16 20)
 
-num_iterations=16
+num_iterations=4
 
 # Syntax: mpi_run <m> <n> <k> <version=1,2>
 mpi_run() {
@@ -74,7 +74,9 @@ main() {
     echo "Square Matrices"
     for m in "${square_size_vals[@]}"; do
         echo -e "\tRunning (size: ${m})"
-        run $1 $m $m $m
+        for ((i = 0; i <= $num_iterations; i++)); do
+            run $1 $m $m $m
+        done
     done
     echo "Rectangle Matrices"
     for m in "${m_n_vals[@]}"; do
@@ -82,7 +84,7 @@ main() {
             for k in "${k_vals[@]}"; do
                 if [[ m -ne n ]] || [[ m -ne k ]]; then 
                     echo -e "\tRunning (m: ${m}, n: ${n}, k: ${k})"
-                    for ((i=1; i<=$num_iterations; i++)); do
+                    for ((i = 0; i <= $num_iterations; i++)); do
                         run $1 $m $n $k
                     done
                 fi
