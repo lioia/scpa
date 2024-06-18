@@ -188,6 +188,8 @@ int main(int argc, char **argv) {
   stats.second_communication_time = MPI_Wtime() - start_time; // Final matrix communication time
 
   // Cleanup MPI environment
+  MPI_Type_free(&row_type);
+  MPI_Type_free(&col_type);
   MPI_Type_free(&row_type_resized);
   MPI_Type_free(&col_type_resized);
   MPI_Comm_free(&topology_comm);

@@ -223,8 +223,8 @@ int main(int argc, char **argv) {
   }
 
 mpi_close:
-  MPI_Barrier(topology_comm);                    // Waiting for root process to finish ordering
-  stats.second_communication_time = MPI_Wtime(); // Second communication time
+  MPI_Barrier(topology_comm);                                 // Waiting for root process to finish ordering
+  stats.second_communication_time = MPI_Wtime() - start_time; // Second communication time
 
   // MPI Cleanup
   MPI_Comm_free(&topology_comm);
