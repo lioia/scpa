@@ -20,7 +20,7 @@ int main(int argc, char **argv) {
   int m, n, k;                                    // Matrix dimension (from arguments)
   int p, t, rank;                                 // Number of processes, threads and this process rank
   float *a, *b, *c, *c_serial;                    // Matrices
-  float *local_a, *local_b, *local_c;             // Local Matrices
+  float *local_a, *local_b;                       // Local Matrices
   MPI_Comm topology_comm, temp_comm;              // Custom communicator
   int dims[2], periods[2], coords[2];             // Topology dimensions and coordinates
   int start_rows, end_rows, start_cols, end_cols; // Block distribution
@@ -28,7 +28,7 @@ int main(int argc, char **argv) {
   MPI_Datatype row_type, row_type_resized;        // Row Datatype
   MPI_Datatype col_type, col_type_resized;        // Column Datatype
   int *a_counts, *a_displs, *b_counts, *b_displs; // Scatterv parameters
-  void *sendbuf, *recvbuf;                        // Scatterv and Reduce parameter
+  void *sendbuf;                                  // Scatterv and Reduce parameter
   double start_time;                              // Start timer
   float error;                                    // Difference between serial and parallel computation
   enum gen_type_t gen_type;                       // Generation type
@@ -109,8 +109,7 @@ int main(int argc, char **argv) {
     // Rank 0 creates the matrices
     a = matrix_init(m, k, gen_type, SEED + 0);
     b = matrix_init(k, n, gen_type, SEED + 1);
-    c_serial = matrix_init(m, n, ZERO, 0);
-    if (a == NULL || b == NULL || c_serial == NULL) {
+    if (a == NULL || b == NULL) {
       perror("Error creating matrices");
       MPI_Abort(topology_comm, EXIT_FAILURE);
     }
@@ -119,9 +118,8 @@ int main(int argc, char **argv) {
   // Every process allocates the local matrices
   local_a = matrix_init(n_rows, k, ZERO, 0);
   local_b = matrix_init(k, n_cols, ZERO, 0);
-  local_c = matrix_init(m, n, ZERO, 0);
   c = matrix_init(m, n, ZERO, 0);
-  if (local_a == NULL || local_b == NULL || local_c == NULL || c == NULL) {
+  if (local_a == NULL || local_b == NULL || c == NULL) {
     perror("Error allocating local matrices");
     MPI_Abort(topology_comm, EXIT_FAILURE);
   }
@@ -173,7 +171,7 @@ int main(int argc, char **argv) {
 
   // Parallel computation
 
-  matrix_parallel_mult(local_a, local_b, local_c, n_rows, n_cols, k, n, start_rows, start_cols);
+  matrix_parallel_mult(local_a, local_b, c, n_rows, n_cols, k, n, start_rows, start_cols);
 
   MPI_Barrier(topology_comm);                     // Every process has terminated the execution of the parallel code
   stats.parallel_time = MPI_Wtime() - start_time; // Parallel computation
@@ -181,8 +179,7 @@ int main(int argc, char **argv) {
   start_time = MPI_Wtime();
 
   // Reduce to root process 0
-  recvbuf = rank == 0 ? c : NULL;
-  MPI_Allreduce(local_c, c, m * n, MPI_FLOAT, MPI_SUM, topology_comm);
+  MPI_Allreduce(MPI_IN_PLACE, c, m * n, MPI_FLOAT, MPI_SUM, topology_comm);
 
   MPI_Barrier(topology_comm);
   stats.second_communication_time = MPI_Wtime() - start_time; // Final matrix communication time
@@ -202,6 +199,11 @@ int main(int argc, char **argv) {
   if (rank != 0)
     goto close;
 
+  c_serial = matrix_init(m, n, ZERO, 0);
+  if (c_serial == NULL) {
+    perror("Error allocating C serial matrix");
+    return EXIT_FAILURE;
+  }
   if (root_tasks(a, b, c, c_serial, m, n, k, &stats, MPIv1) != 0)
     return EXIT_FAILURE;
 
@@ -214,7 +216,6 @@ close:
   }
   free(local_a);
   free(local_b);
-  free(local_c);
   free(c);
   free(a_counts);
   free(a_displs);
