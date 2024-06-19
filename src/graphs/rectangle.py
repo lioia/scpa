@@ -77,7 +77,7 @@ def speedup_rectangle_plot(df: pd.DataFrame, calc_type: str):
     fig, axs = plt.subplots(n_rows, n_cols, figsize=(16, 12), layout="constrained")
     for ax, m in zip(axs.flat, m_values):
         n_df = df[(df["m"] == m) & (df["n"] == m)]
-        ax.set_title(f"M = N={m}")
+        ax.set_title(f"M = N = {m}")
         ax.set_xlabel("K")
         ax.set_ylabel("Speed Up")
         handles, labels = ax.get_legend_handles_labels()

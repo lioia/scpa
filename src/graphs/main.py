@@ -51,7 +51,7 @@ def main(folder: str, calc_type: Optional[str]):
                 mpi_time_calculation,
                 "_comm",
             )
-            # stacked bar chart for times
+            # TODO: chart for time distribution
 
 
 if __name__ == "__main__":
