@@ -31,15 +31,15 @@ mpi_run() {
 # Syntax: mpi_omp_run <m> <n> <k> <version=1,2> <iteration>
 mpi_omp_run() {
     p=2
-    for ((t = 4; t <= 16; t += 4)); do
+    for ((t = 4; t <= 10; t += 2)); do
         x=$((p * t))
-        echo -e "\tNumber of Processes (version $4): $p; Number of Threads: $t (m: ${1}, n: ${2}, k: ${3}; x = ${x})"
+        echo -e "\tNumber of Processes: $p; Number of Threads: $t (version $4, m: ${1}, n: ${2}, k: ${3}; x = ${x})"
         mpirun -n $p ./build/bin/scpa-mpi-omp-v$4 $1 $2 $3 $t $5
     done
     p=4
-    for ((t = 4; t <= 8; t += 2)); do
+    for ((t = 2; t <= 5; t += 1)); do
         x=$((p * t))
-        echo -e "\tNumber of Processes: $p; Number of Threads: $t (m: ${1}, n: ${2}, k: ${3}; x = ${x})"
+        echo -e "\tNumber of Processes: $p; Number of Threads: $t (version $4, m: ${1}, n: ${2}, k: ${3}; x = ${x})"
         mpirun -n $p ./build/bin/scpa-mpi-omp-v$4 $1 $2 $3 $t $5
     done
 }
@@ -62,8 +62,8 @@ run() {
         mpi_run $2 $3 $4 1 $5
         mpi_run $2 $3 $4 2 $5
     elif [ $1 == "mpi-omp" ]; then
-        mpi_run $2 $3 $4 1 $5
-        mpi_run $2 $3 $4 2 $5
+        mpi_omp_run $2 $3 $4 1 $5
+        mpi_omp_run $2 $3 $4 2 $5
     elif [ $1 == "omp" ]; then
         omp_run $2 $3 $4 $5
     fi
