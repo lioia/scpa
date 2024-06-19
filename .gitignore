@@ -8,6 +8,9 @@ vgcore*
 valgrind*
 callgrind*
 
+# Program output
+*.png
+
 # Python environment
 .venv/
 venv/
