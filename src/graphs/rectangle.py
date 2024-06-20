@@ -1,25 +1,16 @@
-from typing import Callable
 import matplotlib.pyplot as plt
 import pandas as pd
 from matplotlib import colormaps
 import numpy as np
 
 from utils import (
-    default_time_calculation,
     get_label_from_calc_type,
     get_unique_p_t,
     get_title_from_calc_type,
 )
 
 
-# Line Chart
-def rectangle_plot(
-    df: pd.DataFrame,
-    calc_type: str,
-    subtitle: str = "",
-    time_calculation: Callable = default_time_calculation,
-    suffix: str = "",
-):
+def rectangle_plot(df: pd.DataFrame, calc_type: str):
     ps = get_unique_p_t(df)
     m_values = df["m"].unique().tolist()
     k_values = df["k"].unique().tolist()
@@ -42,9 +33,7 @@ def rectangle_plot(
                 n_df[(n_df["processes"] == p) & (n_df["threads"] == t)]
             )
             perfs = values.apply(
-                lambda r: (
-                    ((2 * r["m"] * r["k"] * r["n"]) / time_calculation(r)) / 1e9
-                ),
+                lambda r: (((2 * r["m"] * r["k"] * r["n"]) / r["parallel_time"]) / 1e9),
                 axis=1,
             ).tolist()
             ax.plot(
@@ -55,11 +44,9 @@ def rectangle_plot(
             )
             ax.set_xticks(k_values)
         handles, labels = axs.flat[0].get_legend_handles_labels()
-        fig.suptitle(
-            f"{get_title_from_calc_type(calc_type)}{subtitle}: Rectangle Matrices"
-        )
+        fig.suptitle(f"{get_title_from_calc_type(calc_type)}: Rectangle Matrices")
         fig.legend(handles, labels)
-        fig.savefig(f"output/{calc_type}_rectangle{suffix}.png")
+        fig.savefig(f"output/{calc_type}/rectangle.png")
     plt.close()
 
 
@@ -100,5 +87,87 @@ def speedup_rectangle_plot(df: pd.DataFrame, calc_type: str):
         handles, labels = axs.flat[0].get_legend_handles_labels()
         fig.suptitle(f"{get_title_from_calc_type(calc_type)}: Rectangle Matrices")
         fig.legend(handles, labels)
-        fig.savefig(f"output/speedup_{calc_type}_rectangle.png")
+        fig.savefig(f"output/{calc_type}/speedup_rectangle.png")
+    plt.close()
+
+
+def rectangle_time_distribution_plot(df: pd.DataFrame, calc_type: str):
+    m_values = pd.Series(df[df["m"] > 2000]["m"]).unique().tolist()
+    k_values = pd.Series(df["k"]).unique().tolist()
+    processes = get_unique_p_t(df)
+
+    _, ax = plt.subplots(figsize=(12, 7))
+    bar_width = 0.4 / len(processes)
+    group_spacing = 0.05
+    x_pos = np.arange(len(k_values))
+
+    first_comm_bars = []
+    parallel_bars = []
+    second_comm_bars = []
+
+    for m in m_values:
+        for j, k in enumerate(k_values):
+            for i, (p, _) in enumerate(processes):
+                df_kp = df[
+                    (df["k"] == k)
+                    & (df["m"] == m)
+                    & (df["n"] == m)
+                    & (df["processes"] == p)
+                ]
+                first_time = pd.Series(df_kp["first_communication_time"]).values[0]
+                parallel_time = pd.Series(df_kp["parallel_time"]).values[0]
+                second_time = pd.Series(df_kp["second_communication_time"]).values[0]
+                total_time = first_time + parallel_time + second_time
+
+                first_time = first_time / total_time * 100
+                parallel_time = parallel_time / total_time * 100
+                second_time = second_time / total_time * 100
+
+                bar_offset = i - (len(processes) - 1) / 2
+                bar_center = x_pos[j] + bar_offset * (bar_width + group_spacing)
+                first_comm_bar = ax.bar(
+                    bar_center,
+                    first_time,
+                    bar_width,
+                    label="First Communication Time" if not first_comm_bars else "",
+                    color="C0",
+                )
+                parallel_bar = ax.bar(
+                    bar_center,
+                    parallel_time,
+                    bar_width,
+                    label="Parallel Time" if not parallel_bars else "",
+                    color="C1",
+                    bottom=first_time,
+                )
+                second_comm_bar = ax.bar(
+                    bar_center,
+                    second_time,
+                    bar_width,
+                    label="Second Communication Time" if not second_comm_bars else "",
+                    color="C2",
+                    bottom=first_time + parallel_time,
+                )
+
+                first_comm_bars.append(first_comm_bar)
+                parallel_bars.append(parallel_bar)
+                second_comm_bars.append(second_comm_bar)
+
+                ax.text(
+                    bar_center,
+                    first_time + parallel_time + second_time + 1,
+                    str(p),
+                    ha="center",
+                    va="bottom",
+                    fontsize=8,
+                )
+
+        ax.set_xlabel("K")
+        ax.set_ylabel("Percentage of Time")
+        ax.set_title(f"Percentage of Time Spent in Each Phase M = N = {m}")
+        ax.set_xticks(x_pos)
+        ax.set_xticklabels(k_values)
+        ax.legend(loc="lower left")
+
+        plt.savefig(f"output/{calc_type}/time_distribution_rectangle_{m}.png")
     plt.close()

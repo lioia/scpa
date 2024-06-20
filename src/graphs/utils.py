@@ -33,18 +33,6 @@ def get_label_from_calc_type(calc_type: str, process: Tuple[int, int]) -> str:
         raise
 
 
-def default_time_calculation(df):
-    return df["parallel_time"]
-
-
-def mpi_time_calculation(df):
-    return (
-        df["parallel_time"]
-        + df["first_communication_time"]
-        + df["second_communication_time"]
-    )
-
-
 def mean_excluding_zeros(series):
     non_zero_values = series[series != 0.0]
     if len(non_zero_values) == 0:

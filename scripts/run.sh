@@ -79,16 +79,14 @@ main() {
         done
     done
     echo "Rectangle Matrices"
-    for m in "${m_n_vals[@]}"; do
-        for n in "${m_n_vals[@]}"; do
-            for k in "${k_vals[@]}"; do
-                if [[ m -ne n ]] || [[ m -ne k ]]; then 
-                    echo -e "\tRunning (m: ${m}, n: ${n}, k: ${k})"
-                    for ((i = 0; i < $num_iterations; i++)); do
-                        run $1 $m $n $k $i
-                    done
-                fi
-            done
+    for m_n in "${m_n_vals[@]}"; do
+        for k in "${k_vals[@]}"; do
+            if [[ m -ne n ]] || [[ m -ne k ]]; then 
+                echo -e "\tRunning (m = n: ${m_n}, k: ${k})"
+                for ((i = 0; i < $num_iterations; i++)); do
+                    run $1 $m_n $m_n $k $i
+                done
+            fi
         done
     done
 }
