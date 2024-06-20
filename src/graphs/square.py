@@ -17,7 +17,7 @@ def square_plot(df: pd.DataFrame, calc_type: str):
     for p, t in processes:
         values = df[(df["processes"] == p) & (df["threads"] == t)]
         keys = values.apply(
-            lambda r: str(r["k"]),
+            lambda r: str(int(r["k"])),
             axis=1,
         ).tolist()
         perfs = values.apply(
@@ -44,7 +44,7 @@ def square_speedup_plot(df: pd.DataFrame, calc_type: str):
         values = df[(df["processes"] == p) & (df["threads"] == t)]
         for i in range(len(values)):
             v = values.iloc[i]
-            keys.append(str(v["k"]))
+            keys.append(str(int(v["k"])))
             ys.append(v["serial_time"] / v["parallel_time"])
 
         plt.plot(keys, ys, label=get_label_from_calc_type(calc_type, (p, t)))
