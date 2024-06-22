@@ -58,7 +58,7 @@ def square_speedup_plot(df: pd.DataFrame, calc_type: str):
 
 
 def square_time_distribution_plot(df: pd.DataFrame, calc_type: str):
-    k_values = pd.Series(df[df["k"] > 2000]["k"]).unique().tolist()
+    k_values = pd.Series(df[df["k"] == 5000]["k"]).unique().tolist()
     processes = get_unique_p_t(df)
 
     _, ax = plt.subplots(figsize=(12, 7))

@@ -92,7 +92,7 @@ def speedup_rectangle_plot(df: pd.DataFrame, calc_type: str):
 
 
 def rectangle_time_distribution_plot(df: pd.DataFrame, calc_type: str):
-    m_values = pd.Series(df[df["m"] > 2000]["m"]).unique().tolist()
+    m_values = pd.Series(df[df["m"] == 5000]["m"]).unique().tolist()
     k_values = pd.Series(df["k"]).unique().tolist()
     processes = get_unique_p_t(df)
 
